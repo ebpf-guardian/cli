@@ -7,11 +7,11 @@ use std::path::PathBuf;
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
-    
+
     /// Verbosity level (-v = debug, -vv = trace)
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
-    
+
     /// Suppress all output except errors
     #[arg(short, long)]
     pub quiet: bool,
@@ -91,15 +91,15 @@ pub struct ScanArgs {
     /// Glob pattern to match object files (e.g., "**/*.o")
     #[arg(long, conflicts_with = "file")]
     pub glob: Option<String>,
-    
+
     /// Path to custom rules file
     #[arg(short, long)]
     pub rules: Option<PathBuf>,
-    
+
     /// Output format (table or json)
     #[arg(short = 'f', long, value_enum, default_value = "table")]
     pub format: OutputFormat,
-    
+
     /// Generate detailed Markdown report
     #[arg(short = 'R', long)]
     pub report: Option<PathBuf>,
@@ -115,15 +115,15 @@ pub struct ScanArgs {
     /// Print CFG in ASCII (adjacency) to stdout
     #[arg(long)]
     pub print_cfg_ascii: bool,
-    
+
     /// Exit with code 1 if any high-severity rules are violated
     #[arg(long)]
     pub strict: bool,
-    
+
     /// Skip scanning if file hasn't changed (uses SHA256 cache)
     #[arg(long)]
     pub use_cache: bool,
-    
+
     /// Cache directory location
     #[arg(long, default_value = ".ebpf-guardian-cache")]
     pub cache_dir: PathBuf,

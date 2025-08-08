@@ -1,6 +1,5 @@
-use anyhow::Result;
-use std::process::Command;
 use crate::loader::elf_parser::BpfMap;
+use anyhow::Result;
 
 /// Gets information about a loaded BPF map
 pub fn get_map_info(map_id: u32) -> Result<BpfMap> {
@@ -8,7 +7,7 @@ pub fn get_map_info(map_id: u32) -> Result<BpfMap> {
     // 1. Run bpftool map show id MAP_ID
     // 2. Parse the output
     // 3. Return map info
-    
+
     Ok(BpfMap {
         name: format!("map_{}", map_id),
         map_type: 1, // BPF_MAP_TYPE_HASH
@@ -26,6 +25,6 @@ pub fn list_maps() -> Result<Vec<u32>> {
     // 1. Run bpftool map show
     // 2. Parse the output
     // 3. Return list of map IDs
-    
+
     Ok(vec![1, 2, 3]) // Dummy map IDs
 }

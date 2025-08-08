@@ -46,7 +46,7 @@ fn test_scan_with_json_output() {
         .arg("json")
         .output()
         .unwrap();
-    
+
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(serde_json::from_str::<serde_json::Value>(&stdout).is_ok());
 }
@@ -54,15 +54,19 @@ fn test_scan_with_json_output() {
 #[test]
 fn test_scan_with_rules() {
     let rules_file = NamedTempFile::new().unwrap();
-    std::fs::write(&rules_file, r#"
+    std::fs::write(
+        &rules_file,
+        r#"
 - id: map-size-limit
   description: Limit map size
   severity: high
   rule_type: map_policy
   config:
     max_entries: 1
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     Command::cargo_bin("ebpf-guardian")
         .unwrap()
         .arg("scan")
@@ -77,7 +81,7 @@ fn test_scan_with_rules() {
 #[test]
 fn test_scan_with_report() {
     let report_file = NamedTempFile::new().unwrap();
-    
+
     Command::cargo_bin("ebpf-guardian")
         .unwrap()
         .arg("scan")
@@ -87,7 +91,7 @@ fn test_scan_with_report() {
         .arg(report_file.path())
         .assert()
         .success();
-    
+
     let report_content = std::fs::read_to_string(report_file.path()).unwrap();
     assert!(report_content.contains("# eBPF Program Analysis Report"));
 }
@@ -95,15 +99,19 @@ fn test_scan_with_report() {
 #[test]
 fn test_scan_strict_mode() {
     let rules_file = NamedTempFile::new().unwrap();
-    std::fs::write(&rules_file, r#"
+    std::fs::write(
+        &rules_file,
+        r#"
 - id: map-size-limit
   description: Limit map size
   severity: high
   rule_type: map_policy
   config:
     max_entries: 1
-"#).unwrap();
-    
+"#,
+    )
+    .unwrap();
+
     Command::cargo_bin("ebpf-guardian")
         .unwrap()
         .arg("scan")
@@ -120,7 +128,7 @@ fn test_scan_strict_mode() {
 #[test]
 fn test_scan_with_cache() {
     let cache_dir = tempfile::tempdir().unwrap();
-    
+
     // First scan
     Command::cargo_bin("ebpf-guardian")
         .unwrap()
@@ -132,7 +140,7 @@ fn test_scan_with_cache() {
         .arg(cache_dir.path())
         .assert()
         .success();
-    
+
     // Second scan should use cache
     let output = Command::cargo_bin("ebpf-guardian")
         .unwrap()
@@ -144,7 +152,7 @@ fn test_scan_with_cache() {
         .arg(cache_dir.path())
         .output()
         .unwrap();
-    
+
     let stdout = String::from_utf8(output.stderr).unwrap();
     assert!(stdout.contains("Using cached results"));
 }

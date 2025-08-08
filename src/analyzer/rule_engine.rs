@@ -1,8 +1,8 @@
-use std::path::Path;
-use serde::{Serialize, Deserialize};
-use std::fs;
-use super::{Result, AnalyzerError, InstructionInfo, MapInfo, RuleViolation};
+use super::{AnalyzerError, InstructionInfo, MapInfo, Result, RuleViolation};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::fs;
+use std::path::Path;
 
 /// Rule definition loaded from YAML
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,21 +33,22 @@ pub fn evaluate_rules(
     maps: &[MapInfo],
 ) -> Result<Vec<RuleViolation>> {
     // Load rules from YAML (with better error context)
-    let rules_content = fs::read_to_string(rules_path)
-        .map_err(|e| AnalyzerError::IoError(e))?;
+    let rules_content = fs::read_to_string(rules_path).map_err(AnalyzerError::IoError)?;
     let rules: Vec<Rule> = match serde_yaml::from_str(&rules_content) {
         Ok(r) => r,
         Err(e) => {
-            let loc = e.location()
+            let loc = e
+                .location()
                 .map(|l| format!("line {}, column {}", l.line(), l.column()))
                 .unwrap_or_else(|| "unknown location".to_string());
-            return Err(AnalyzerError::RuleEngineError(
-                format!("Failed to parse rules at {loc}: {e}")));
+            return Err(AnalyzerError::RuleEngineError(format!(
+                "Failed to parse rules at {loc}: {e}"
+            )));
         }
     };
-    
+
     let mut violations = Vec::new();
-    
+
     // Evaluate each rule
     for rule in rules {
         match rule.rule_type.as_str() {
@@ -58,13 +59,14 @@ pub fn evaluate_rules(
                 evaluate_instruction_rule(&rule, instructions, &mut violations)?;
             }
             _ => {
-                return Err(AnalyzerError::RuleEngineError(
-                    format!("Unknown rule type: {}", rule.rule_type)
-                ));
+                return Err(AnalyzerError::RuleEngineError(format!(
+                    "Unknown rule type: {}",
+                    rule.rule_type
+                )));
             }
         }
     }
-    
+
     Ok(violations)
 }
 
@@ -114,7 +116,7 @@ fn evaluate_map_rule(
         }
         return Ok(());
     }
-    
+
     Ok(())
 }
 
@@ -126,7 +128,8 @@ fn evaluate_instruction_rule(
 ) -> Result<()> {
     // Regex-based matching
     if let Some(pat) = rule.instr_regex.as_deref() {
-        let re = regex::Regex::new(pat).map_err(|e| AnalyzerError::RuleEngineError(e.to_string()))?;
+        let re =
+            regex::Regex::new(pat).map_err(|e| AnalyzerError::RuleEngineError(e.to_string()))?;
         for inst in instructions {
             if re.is_match(&inst.disassembly) {
                 violations.push(RuleViolation {
@@ -147,7 +150,8 @@ fn evaluate_instruction_rule(
         let mut scope = rhai::Scope::new();
         scope.push("num_instructions", instructions.len() as i64);
         // Add more context bindings as needed
-        let ok: bool = engine.eval_with_scope(&mut scope, script)
+        let ok: bool = engine
+            .eval_with_scope(&mut scope, script)
             .map_err(|e| AnalyzerError::RuleEngineError(format!("rhai error: {e}")))?;
         if ok {
             violations.push(RuleViolation {

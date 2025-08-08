@@ -1,35 +1,45 @@
-use std::path::Path;
+use super::{AnalyzerError, InstructionInfo, Result};
 use goblin::elf::Elf;
 use std::fs;
-use super::{Result, AnalyzerError, InstructionInfo};
+use std::path::Path;
 
 /// Disassembles an eBPF program from an object file
 pub fn disassemble(path: &Path) -> Result<Vec<InstructionInfo>> {
     // Read the file
-    let buffer = fs::read(path).map_err(|e| AnalyzerError::IoError(e))?;
-    
+    let buffer = fs::read(path).map_err(AnalyzerError::IoError)?;
+
     // Parse ELF file
-    let elf = Elf::parse(&buffer)
-        .map_err(|e| AnalyzerError::DisassemblyError(e.to_string()))?;
-    
+    let elf = Elf::parse(&buffer).map_err(|e| AnalyzerError::DisassemblyError(e.to_string()))?;
+
     // Extract eBPF instructions from known program sections and .text*
     let mut instructions: Vec<InstructionInfo> = Vec::new();
-    for (_idx, sh) in elf.section_headers.iter().enumerate() {
+    for sh in elf.section_headers.iter() {
         let name = elf.shdr_strtab.get_at(sh.sh_name).unwrap_or("");
         // Include typical eBPF program sections in addition to .text*
         let is_prog_section = name.starts_with(".text")
             || name == "xdp"
             || name.starts_with("xdp/")
             || name == "socket"
-            || name == "kprobe" || name == "kretprobe"
-            || name.starts_with("tracepoint") || name.starts_with("raw_tracepoint")
-            || name == "tc" || name == "cls" || name.starts_with("cgroup/")
-            || name == "uprobe" || name == "uretprobe";
-        if !is_prog_section { continue; }
-        if sh.sh_size == 0 { continue; }
+            || name == "kprobe"
+            || name == "kretprobe"
+            || name.starts_with("tracepoint")
+            || name.starts_with("raw_tracepoint")
+            || name == "tc"
+            || name == "cls"
+            || name.starts_with("cgroup/")
+            || name == "uprobe"
+            || name == "uretprobe";
+        if !is_prog_section {
+            continue;
+        }
+        if sh.sh_size == 0 {
+            continue;
+        }
         let start = sh.sh_offset as usize;
         let end = start + sh.sh_size as usize;
-        if end > buffer.len() || start >= buffer.len() { continue; }
+        if end > buffer.len() || start >= buffer.len() {
+            continue;
+        }
         let data = &buffer[start..end];
         for (i, chunk) in data.chunks_exact(8).enumerate() {
             let raw = u64::from_le_bytes([
@@ -92,21 +102,22 @@ impl InstructionClass {
 pub fn decode_instruction(raw: u64, offset: usize) -> Result<InstructionInfo> {
     // eBPF instruction format:
     // https://www.kernel.org/doc/Documentation/networking/filter.txt
-    
+
     let opcode = (raw & 0xFF) as u8;
     let dst_reg = ((raw >> 8) & 0x0F) as u8;
     let src_reg = ((raw >> 12) & 0x0F) as u8;
     let imm = (raw >> 32) as i32;
-    
-    let class = InstructionClass::from_opcode(opcode)
-        .ok_or_else(|| AnalyzerError::InvalidInstruction(
-            format!("Unknown instruction class for opcode: {:#x}", opcode)
-        ))?;
-        
+
+    let class = InstructionClass::from_opcode(opcode).ok_or_else(|| {
+        AnalyzerError::InvalidInstruction(format!(
+            "Unknown instruction class for opcode: {opcode:#x}"
+        ))
+    })?;
+
     // Basic disassembly for common opcodes/classes
     let disassembly = {
         let class_bits = opcode & 0x07; // class in lowest 3 bits
-        let op_bits = opcode & 0xF0;    // operation type for ALU/JMP
+        let op_bits = opcode & 0xF0; // operation type for ALU/JMP
         let src_is_reg = (opcode & 0x08) != 0; // BPF_X vs BPF_K
 
         match (class_bits, opcode) {
@@ -120,8 +131,12 @@ pub fn decode_instruction(raw: u64, offset: usize) -> Result<InstructionInfo> {
             (0x07, _) | (0x04, _) => {
                 // ALU/ALU64
                 let dst = format!("r{}", dst_reg);
-                let src = if src_is_reg { format!("r{}", src_reg) } else { format!("{}", imm) };
-                let op = match op_bits { 
+                let src = if src_is_reg {
+                    format!("r{}", src_reg)
+                } else {
+                    format!("{}", imm)
+                };
+                let op = match op_bits {
                     0xB0 => "mov",
                     0x00 => "add",
                     0x10 => "sub",
@@ -167,7 +182,7 @@ pub fn decode_instruction(raw: u64, offset: usize) -> Result<InstructionInfo> {
             _ => format!("inst_{:#x} r{}, r{}, {}", opcode, dst_reg, src_reg, imm),
         }
     };
-    
+
     Ok(InstructionInfo {
         offset,
         opcode,

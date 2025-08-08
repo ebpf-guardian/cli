@@ -1,6 +1,6 @@
-use std::path::Path;
-use super::{Result, MapInfo};
+use super::{MapInfo, Result};
 use crate::loader::elf_parser;
+use std::path::Path;
 
 /// Map types as defined in linux/bpf.h
 #[derive(Debug, Clone, Copy)]
@@ -22,7 +22,7 @@ impl BpfMapType {
             _ => None,
         }
     }
-    
+
     pub fn to_string(&self) -> String {
         match self {
             BpfMapType::Hash => "HASH".to_string(),
@@ -59,7 +59,11 @@ pub fn analyze_maps(path: &Path) -> Result<Vec<MapInfo>> {
             max_entries: m.max_entries,
             flags: m.flags,
             writable,
-            accessed_by: if m.section.is_empty() { vec![] } else { vec![m.section] },
+            accessed_by: if m.section.is_empty() {
+                vec![]
+            } else {
+                vec![m.section]
+            },
         });
     }
 
@@ -67,15 +71,15 @@ pub fn analyze_maps(path: &Path) -> Result<Vec<MapInfo>> {
 }
 
 /// Extract map access patterns from instructions
-pub fn analyze_map_access(instructions: &[super::InstructionInfo]) -> Result<Vec<MapAccess>> {
-    let mut accesses = Vec::new();
-    
+pub fn analyze_map_access(_instructions: &[super::InstructionInfo]) -> Result<Vec<MapAccess>> {
+    let accesses = Vec::new();
+
     // TODO: Implement map access pattern analysis
     // This would look for:
     // - map_fd_idx in instructions
     // - read vs write operations
     // - key/value access patterns
-    
+
     Ok(accesses)
 }
 

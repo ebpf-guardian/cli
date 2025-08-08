@@ -1,29 +1,29 @@
 //! Module for analyzing eBPF programs and building control/data flow graphs.
 
-use serde::{Serialize, Deserialize};
-use std::path::Path;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
-pub mod disassembler;   // Handles converting bytecode into readable ops
-pub mod map_tracker;    // Analyzes maps defined/used in the program
-pub mod program_graph;  // Builds control/data flow graphs
-pub mod rule_engine;    // Applies rules against the extracted behavior
+use std::path::Path;
+
+pub mod disassembler; // Handles converting bytecode into readable ops
+pub mod map_tracker; // Analyzes maps defined/used in the program
+pub mod program_graph; // Builds control/data flow graphs
+pub mod rule_engine; // Applies rules against the extracted behavior
 
 /// Common error type for analyzer operations
 #[derive(Debug, thiserror::Error)]
 pub enum AnalyzerError {
     #[error("Disassembly error: {0}")]
     DisassemblyError(String),
-    
+
     #[error("Invalid instruction: {0}")]
     InvalidInstruction(String),
-    
+
     #[error("Map analysis error: {0}")]
     MapAnalysisError(String),
-    
+
     #[error("Rule engine error: {0}")]
     RuleEngineError(String),
-    
+
     #[error(transparent)]
     IoError(#[from] std::io::Error),
 }
@@ -133,10 +133,10 @@ pub struct ScanSummary {
 pub async fn analyze_bpf_program(path: &Path, rules_path: Option<&Path>) -> Result<ScanSummary> {
     // Load and disassemble the program
     let instructions = disassembler::disassemble(path)?;
-    
+
     // Analyze maps
     let maps = map_tracker::analyze_maps(path)?;
-    
+
     // Load and evaluate rules
     let mut violations = Vec::new();
     if let Some(rules_file) = rules_path {
@@ -146,12 +146,15 @@ pub async fn analyze_bpf_program(path: &Path, rules_path: Option<&Path>) -> Resu
     // Build and analyze control flow graph
     let graph = program_graph::build_graph(&instructions)?;
     let analysis = program_graph::analyze_program(&graph, &instructions)?;
-    
+
     // Add violations based on analysis
     if analysis.max_stack_depth > 512 {
         violations.push(RuleViolation {
             rule_id: "stack-depth-limit".to_string(),
-            description: format!("Stack depth {} exceeds recommended limit of 512 bytes", analysis.max_stack_depth),
+            description: format!(
+                "Stack depth {} exceeds recommended limit of 512 bytes",
+                analysis.max_stack_depth
+            ),
             severity: "medium".to_string(),
             location: format!("Program uses {} bytes of stack", analysis.max_stack_depth),
             context: "Large stack usage may cause issues with concurrent programs".to_string(),
@@ -178,7 +181,10 @@ pub async fn analyze_bpf_program(path: &Path, rules_path: Option<&Path>) -> Resu
                 rule_id: "unsafe-map-access".to_string(),
                 description: format!("Unchecked map access in loop for {}", access.map_id),
                 severity: "high".to_string(),
-                location: format!("Map {} accessed in loop without bounds check", access.map_id),
+                location: format!(
+                    "Map {} accessed in loop without bounds check",
+                    access.map_id
+                ),
                 context: "Map accesses in loops must check bounds to prevent hangs".to_string(),
             });
         }
@@ -199,7 +205,10 @@ pub async fn analyze_bpf_program(path: &Path, rules_path: Option<&Path>) -> Resu
     }
 
     // Path complexity warning
-    if analysis.cyclomatic_complexity > 200 || analysis.path_count > 1000 || analysis.conditional_branch_count > 12 {
+    if analysis.cyclomatic_complexity > 200
+        || analysis.path_count > 1000
+        || analysis.conditional_branch_count > 12
+    {
         violations.push(RuleViolation {
             rule_id: "verifier-scaling-risk".to_string(),
             description: format!(
@@ -211,7 +220,7 @@ pub async fn analyze_bpf_program(path: &Path, rules_path: Option<&Path>) -> Resu
             context: "Complex control flow can cause long verification times or rejection.".to_string(),
         });
     }
-    
+
     let program_type = detect_program_type(path).unwrap_or_else(|| "unknown".to_string());
 
     Ok(ScanSummary {
@@ -250,7 +259,11 @@ fn detect_program_type(path: &Path) -> Option<String> {
         };
 
         // Strict matches
-        if name == "xdp" || name.starts_with("xdp/") || name.starts_with(".text/xdp") || name == ".text.xdp" {
+        if name == "xdp"
+            || name.starts_with("xdp/")
+            || name.starts_with(".text/xdp")
+            || name == ".text.xdp"
+        {
             return Some("XDP".to_string());
         }
         if name == "socket" || name.starts_with(".text/socket") {
@@ -284,57 +297,61 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use tempfile::NamedTempFile;
-    
+
     fn create_test_rule_file() -> NamedTempFile {
         let mut file = NamedTempFile::new().unwrap();
         use std::io::Write;
-        writeln!(file, r#"
+        writeln!(
+            file,
+            r#"
 - id: map-size-limit
   description: Limit map size
   severity: high
   rule_type: map_policy
   config:
     max_entries: 1
-"#).unwrap();
+"#
+        )
+        .unwrap();
         file
     }
-    
+
     #[tokio::test]
     async fn test_analyze_simple_program() {
         let test_file = PathBuf::from("tests/data/simple.o");
         let result = analyze_bpf_program(&test_file, None).await;
         assert!(result.is_ok());
-        
+
         let summary = result.unwrap();
         assert!(!summary.instructions.is_empty());
         assert_eq!(summary.program_type, "unknown"); // TODO: Update when type detection is implemented
     }
-    
+
     #[tokio::test]
     async fn test_analyze_program_with_maps() {
         let test_file = PathBuf::from("tests/data/simple.o");
         let result = analyze_bpf_program(&test_file, None).await;
         assert!(result.is_ok());
-        
+
         let summary = result.unwrap();
         assert!(!summary.maps.is_empty());
-        
+
         let map = &summary.maps[0];
         assert_eq!(map.map_type, "HASH");
         assert_eq!(map.max_entries, 10000);
     }
-    
+
     #[tokio::test]
     async fn test_analyze_with_rules() {
         let test_file = PathBuf::from("tests/data/simple.o");
         let rules_file = create_test_rule_file();
-        
+
         let result = analyze_bpf_program(&test_file, Some(rules_file.path())).await;
         assert!(result.is_ok());
-        
+
         let summary = result.unwrap();
         assert!(!summary.violations.is_empty());
-        
+
         let violation = &summary.violations[0];
         assert_eq!(violation.rule_id, "map-size-limit");
         assert_eq!(violation.severity, "high");

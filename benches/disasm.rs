@@ -11,4 +11,3 @@ fn bench_disasm(c: &mut Criterion) {
 
 criterion_group!(benches, bench_disasm);
 criterion_main!(benches);
-

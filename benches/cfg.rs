@@ -6,7 +6,9 @@ fn bench_cfg_build(c: &mut Criterion) {
             let path = std::path::Path::new("tests/data/simple.o");
             let rt = tokio::runtime::Runtime::new().unwrap();
             let _ = rt.block_on(async {
-                let summary = ebpf_guardian::analyzer::analyze_bpf_program(path, None).await.unwrap();
+                let summary = ebpf_guardian::analyzer::analyze_bpf_program(path, None)
+                    .await
+                    .unwrap();
                 criterion::black_box(summary);
             });
         })
@@ -15,4 +17,3 @@ fn bench_cfg_build(c: &mut Criterion) {
 
 criterion_group!(benches, bench_cfg_build);
 criterion_main!(benches);
-

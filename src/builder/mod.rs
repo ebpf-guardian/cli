@@ -16,10 +16,7 @@ fn find_clang_with_bpf() -> Result<String> {
             "/usr/local/opt/llvm/bin/clang",
         ]
     } else {
-        vec![
-            "/usr/bin/clang-17",
-            "/usr/bin/clang",
-        ]
+        vec!["/usr/bin/clang-17", "/usr/bin/clang"]
     };
 
     for path in package_paths {
@@ -52,7 +49,11 @@ fn verify_bpf_support(clang_path: &str) -> Result<()> {
 }
 
 #[cfg(feature = "llvm")]
-pub async fn build_bpf_program(source: &Path, output: Option<&Path>, opt_level: u8) -> Result<PathBuf> {
+pub async fn build_bpf_program(
+    source: &Path,
+    output: Option<&Path>,
+    opt_level: u8,
+) -> Result<PathBuf> {
     let output_path = output.map(|p| p.to_path_buf()).unwrap_or_else(|| {
         let mut out = source.to_path_buf();
         out.set_extension("o");
@@ -64,10 +65,12 @@ pub async fn build_bpf_program(source: &Path, output: Option<&Path>, opt_level: 
 
     let mut cmd = Command::new(&clang);
     cmd.arg(format!("-O{}", opt_level))
-        .arg("-target").arg("bpf")
+        .arg("-target")
+        .arg("bpf")
         .arg("-c")
         .arg("-g")
-        .arg("-I").arg("include")
+        .arg("-I")
+        .arg("include")
         .arg("-D__KERNEL__")
         .arg("-D__BPF_TRACING__")
         .arg("-Wno-unused-value")
@@ -78,7 +81,8 @@ pub async fn build_bpf_program(source: &Path, output: Option<&Path>, opt_level: 
         .arg("-Wno-tautological-compare")
         .arg("-Wno-unknown-warning-option")
         .arg(source)
-        .arg("-o").arg(&output_path);
+        .arg("-o")
+        .arg(&output_path);
 
     let status = cmd
         .status()
@@ -92,7 +96,11 @@ pub async fn build_bpf_program(source: &Path, output: Option<&Path>, opt_level: 
 }
 
 #[cfg(not(feature = "llvm"))]
-pub async fn build_bpf_program(_source: &Path, _output: Option<&Path>, _opt_level: u8) -> Result<PathBuf> {
+pub async fn build_bpf_program(
+    _source: &Path,
+    _output: Option<&Path>,
+    _opt_level: u8,
+) -> Result<PathBuf> {
     anyhow::bail!(
         "Building eBPF programs requires the 'llvm' feature. Install with default features enabled."
     )

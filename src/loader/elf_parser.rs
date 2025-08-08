@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use goblin::elf::Elf;
 use std::fs;
 use std::path::Path;
-use std::str;
 
 /// Information about a BPF map
 #[derive(Debug, Clone)]
@@ -25,22 +24,25 @@ pub struct BpfMap {
 
 /// Parses an ELF file and extracts BPF maps
 pub fn parse_maps(path: &Path) -> Result<Vec<BpfMap>> {
-    let buffer = fs::read(path)
-        .with_context(|| format!("Failed to read file: {}", path.display()))?;
-        
-    let elf = Elf::parse(&buffer)
-        .with_context(|| "Failed to parse ELF file")?;
-        
+    let buffer =
+        fs::read(path).with_context(|| format!("Failed to read file: {}", path.display()))?;
+
+    let elf = Elf::parse(&buffer).with_context(|| "Failed to parse ELF file")?;
+
     let mut maps = Vec::new();
-    
+
     // Find maps section and extract BPF map definitions by parsing struct bpf_map_def
     for section in elf.section_headers.iter() {
-        let Some(name) = elf.shdr_strtab.get_at(section.sh_name) else { continue; };
+        let Some(name) = elf.shdr_strtab.get_at(section.sh_name) else {
+            continue;
+        };
         if name == ".maps" || name == "maps" {
             let start = section.sh_offset as usize;
             let size = section.sh_size as usize;
             let end = start.saturating_add(size);
-            if end > buffer.len() || start >= buffer.len() { continue; }
+            if end > buffer.len() || start >= buffer.len() {
+                continue;
+            }
             let data = &buffer[start..end];
 
             // struct bpf_map_def layout (classic):
@@ -51,7 +53,9 @@ pub fn parse_maps(path: &Path) -> Result<Vec<BpfMap>> {
             // Build an address->name map from symbols to attach names to map objects
             let mut sym_name_by_addr = std::collections::HashMap::new();
             for sym in elf.syms.iter() {
-                if sym.st_value == 0 { continue; }
+                if sym.st_value == 0 {
+                    continue;
+                }
                 if let Some(sname) = elf.strtab.get_at(sym.st_name) {
                     sym_name_by_addr.insert(sym.st_value as usize, sname.to_string());
                 }
@@ -60,7 +64,7 @@ pub fn parse_maps(path: &Path) -> Result<Vec<BpfMap>> {
             let base_addr = section.sh_addr as usize;
             for (idx, chunk) in data.chunks_exact(entry_size).enumerate() {
                 let r32 = |off: usize| -> u32 {
-                    let bytes = &chunk[off..off+4];
+                    let bytes = &chunk[off..off + 4];
                     u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
                 };
 
@@ -72,7 +76,9 @@ pub fn parse_maps(path: &Path) -> Result<Vec<BpfMap>> {
 
                 // Try to resolve name via symbol that points into this struct
                 let obj_addr = base_addr + idx * entry_size;
-                let name = sym_name_by_addr.get(&obj_addr).cloned()
+                let name = sym_name_by_addr
+                    .get(&obj_addr)
+                    .cloned()
                     .unwrap_or_else(|| format!("map_{}", idx));
 
                 maps.push(BpfMap {
@@ -87,20 +93,26 @@ pub fn parse_maps(path: &Path) -> Result<Vec<BpfMap>> {
             }
         }
     }
-    
+
     // Find program sections to annotate access context (best-effort)
     for section in elf.section_headers.iter() {
-        let Some(name) = elf.shdr_strtab.get_at(section.sh_name) else { continue; };
+        let Some(name) = elf.shdr_strtab.get_at(section.sh_name) else {
+            continue;
+        };
         if name.starts_with(".text/") || name == "xdp" || name.starts_with("xdp/") {
             // We could parse relocations here to link maps per program.
             // Leave as-is for now; map names are already captured above.
-            let _program_name = if name.starts_with(".text/") { &name[6..] } else { name };
+            let _program_name = if name.starts_with(".text/") {
+                &name[6..]
+            } else {
+                name
+            };
             let _ = _program_name; // suppress unused for now
         }
     }
 
     // No more dummy maps; return exactly what we parsed.
-    
+
     Ok(maps)
 }
 

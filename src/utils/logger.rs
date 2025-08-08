@@ -1,8 +1,8 @@
 use anyhow::Result;
+use colored::*;
 use env_logger::{Builder, Env};
 use log::LevelFilter;
 use std::io::Write;
-use colored::*;
 
 /// Initializes the logger with custom formatting
 pub fn init() -> Result<()> {
@@ -15,7 +15,7 @@ pub fn init() -> Result<()> {
                 log::Level::Debug => "DEBUG".blue(),
                 log::Level::Trace => "TRACE".purple(),
             };
-            
+
             writeln!(
                 buf,
                 "{:>5} [{}] {}",
