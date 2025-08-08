@@ -1,0 +1,37 @@
+# eBPF Guardian Rules
+# These rules define security and best practice checks for eBPF programs
+
+- id: no-shared-writable-map
+  description: Writable maps should not be shared between multiple programs
+  severity: high
+  rule_type: map_policy
+
+- id: no-raw-tracepoint
+  description: Raw tracepoints should be avoided in favor of regular tracepoints
+  severity: medium
+  rule_type: instruction_policy
+  
+- id: map-size-limit
+  description: Maps should have reasonable size limits
+  severity: medium
+  rule_type: map_policy
+  config:
+    max_entries: 10000000  # 10M entries
+    
+- id: restricted-helper-funcs
+  description: Certain helper functions should be used with caution
+  severity: high
+  rule_type: instruction_policy
+  config:
+    restricted_helpers:
+      - bpf_probe_write_user
+      - bpf_override_return
+      
+- id: proper-error-handling
+  description: Programs should properly handle error cases
+  severity: medium
+  rule_type: instruction_policy
+  config:
+    required_checks:
+      - null_ptr_check
+      - bounds_check
