@@ -1,58 +1,38 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
+
+#[cfg(feature = "llvm")]
 use std::process::Command;
-use llvm_sys::target_machine::LLVMCodeGenOptLevel;
+#[cfg(feature = "llvm")]
 use which::which;
 
-/// Builds an eBPF program from C source to object file
-/// Finds clang with BPF support in standard system locations
+#[cfg(feature = "llvm")]
 fn find_clang_with_bpf() -> Result<String> {
-    // First try standard package manager locations
-    let package_paths = if cfg!(target_os = "macos") {
+    let package_paths: Vec<&str> = if cfg!(target_os = "macos") {
         vec![
-            "/usr/local/opt/llvm/bin/clang",  // Intel Homebrew
-            "/opt/homebrew/opt/llvm/bin/clang",  // M1 Homebrew
+            "/opt/homebrew/opt/llvm@17/bin/clang",
+            "/usr/local/opt/llvm@17/bin/clang",
+            "/opt/homebrew/opt/llvm/bin/clang",
+            "/usr/local/opt/llvm/bin/clang",
         ]
     } else {
         vec![
-            "/usr/bin/clang",  // Standard Linux
-            "/usr/local/bin/clang",  // Custom install
+            "/usr/bin/clang-17",
+            "/usr/bin/clang",
         ]
     };
 
-    // Check package manager paths first
     for path in package_paths {
-        if Path::new(path).exists() {
-            if let Ok(output) = Command::new(path)
-                .arg("--version")
-                .output()
-            {
-                if output.status.success() {
-                    return Ok(path.to_string());
-                }
-            }
+        if std::path::Path::new(path).exists() {
+            return Ok(path.to_string());
         }
     }
 
-    // Fall back to PATH search
-    if let Ok(path) = which("clang") {
-        if let Ok(output) = Command::new(&path)
-            .arg("--version")
-            .output()
-        {
-            if output.status.success() {
-                return Ok(path.to_string_lossy().into_owned());
-            }
-        }
-    }
-
-    anyhow::bail!("Could not find clang. Please install LLVM/Clang with BPF support:\n\
-                  - On macOS: brew install llvm\n\
-                  - On Ubuntu/Debian: sudo apt install llvm clang\n\
-                  - On Fedora/RHEL: sudo dnf install llvm clang")
+    let path = which("clang")?.to_string_lossy().into_owned();
+    Ok(path)
 }
 
-/// Verifies that clang has BPF target support
+#[cfg(feature = "llvm")]
 fn verify_bpf_support(clang_path: &str) -> Result<()> {
     let output = Command::new(clang_path)
         .arg("--print-targets")
@@ -65,39 +45,31 @@ fn verify_bpf_support(clang_path: &str) -> Result<()> {
 
     let targets = String::from_utf8_lossy(&output.stdout);
     if !targets.contains("bpf") {
-        anyhow::bail!("Installed clang does not support BPF target.\n\
-                      Please ensure you have LLVM/Clang installed with BPF support.")
+        anyhow::bail!("Installed clang does not support BPF target");
     }
 
     Ok(())
 }
 
+#[cfg(feature = "llvm")]
 pub async fn build_bpf_program(source: &Path, output: Option<&Path>, opt_level: u8) -> Result<PathBuf> {
-    // Determine output path
-    let output_path = if let Some(out) = output {
-        out.to_path_buf()
-    } else {
+    let output_path = output.map(|p| p.to_path_buf()).unwrap_or_else(|| {
         let mut out = source.to_path_buf();
         out.set_extension("o");
         out
-    };
+    });
 
-    // Find clang with BPF support
-    let clang_path = find_clang_with_bpf()?;
-    
-    // Verify BPF target support
-    verify_bpf_support(&clang_path)?;
-    
-    let mut cmd = Command::new(clang_path);
+    let clang = find_clang_with_bpf()?;
+    verify_bpf_support(&clang)?;
+
+    let mut cmd = Command::new(&clang);
     cmd.arg(format!("-O{}", opt_level))
-        .arg("-target")
-        .arg("bpf")  // BPF target
+        .arg("-target").arg("bpf")
         .arg("-c")
-        .arg("-g")  // Include debug info
-        .arg("-I")
-        .arg("include")  // Add our include directory
-        .arg("-D__KERNEL__")  // Define kernel compilation
-        .arg("-D__BPF_TRACING__")  // Enable BPF tracing
+        .arg("-g")
+        .arg("-I").arg("include")
+        .arg("-D__KERNEL__")
+        .arg("-D__BPF_TRACING__")
         .arg("-Wno-unused-value")
         .arg("-Wno-pointer-sign")
         .arg("-Wno-compare-distinct-pointer-types")
@@ -106,11 +78,10 @@ pub async fn build_bpf_program(source: &Path, output: Option<&Path>, opt_level: 
         .arg("-Wno-tautological-compare")
         .arg("-Wno-unknown-warning-option")
         .arg(source)
-        .arg("-o")
-        .arg(&output_path);
+        .arg("-o").arg(&output_path);
 
-    // Run compilation
-    let status = cmd.status()
+    let status = cmd
+        .status()
         .with_context(|| format!("Failed to execute clang for {}", source.display()))?;
 
     if !status.success() {
@@ -118,4 +89,11 @@ pub async fn build_bpf_program(source: &Path, output: Option<&Path>, opt_level: 
     }
 
     Ok(output_path)
+}
+
+#[cfg(not(feature = "llvm"))]
+pub async fn build_bpf_program(_source: &Path, _output: Option<&Path>, _opt_level: u8) -> Result<PathBuf> {
+    anyhow::bail!(
+        "Building eBPF programs requires the 'llvm' feature. Install with default features enabled."
+    )
 }

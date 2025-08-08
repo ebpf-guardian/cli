@@ -18,6 +18,12 @@ pub struct Rule {
     /// Rule-specific configuration
     #[serde(flatten)]
     pub config: serde_yaml::Value,
+    /// Optional regex on instruction disassembly
+    #[serde(default)]
+    pub instr_regex: Option<String>,
+    /// Optional scripting condition (rhai), enabled via `scripting` feature
+    #[serde(default)]
+    pub script: Option<String>,
 }
 
 /// Evaluates rules against an eBPF program
@@ -26,12 +32,19 @@ pub fn evaluate_rules(
     instructions: &[InstructionInfo],
     maps: &[MapInfo],
 ) -> Result<Vec<RuleViolation>> {
-    // Load rules from YAML
+    // Load rules from YAML (with better error context)
     let rules_content = fs::read_to_string(rules_path)
         .map_err(|e| AnalyzerError::IoError(e))?;
-        
-    let rules: Vec<Rule> = serde_yaml::from_str(&rules_content)
-        .map_err(|e| AnalyzerError::RuleEngineError(e.to_string()))?;
+    let rules: Vec<Rule> = match serde_yaml::from_str(&rules_content) {
+        Ok(r) => r,
+        Err(e) => {
+            let loc = e.location()
+                .map(|l| format!("line {}, column {}", l.line(), l.column()))
+                .unwrap_or_else(|| "unknown location".to_string());
+            return Err(AnalyzerError::RuleEngineError(
+                format!("Failed to parse rules at {loc}: {e}")));
+        }
+    };
     
     let mut violations = Vec::new();
     
@@ -111,6 +124,41 @@ fn evaluate_instruction_rule(
     instructions: &[InstructionInfo],
     violations: &mut Vec<RuleViolation>,
 ) -> Result<()> {
+    // Regex-based matching
+    if let Some(pat) = rule.instr_regex.as_deref() {
+        let re = regex::Regex::new(pat).map_err(|e| AnalyzerError::RuleEngineError(e.to_string()))?;
+        for inst in instructions {
+            if re.is_match(&inst.disassembly) {
+                violations.push(RuleViolation {
+                    rule_id: rule.id.clone(),
+                    description: rule.description.clone(),
+                    severity: rule.severity.clone(),
+                    location: format!("offset:{}", inst.offset),
+                    context: format!("matches regex: {}", pat),
+                });
+            }
+        }
+    }
+
+    // Scripting (rhai) optional
+    #[cfg(feature = "scripting")]
+    if let Some(script) = rule.script.as_deref() {
+        let mut engine = rhai::Engine::new();
+        let mut scope = rhai::Scope::new();
+        scope.push("num_instructions", instructions.len() as i64);
+        // Add more context bindings as needed
+        let ok: bool = engine.eval_with_scope(&mut scope, script)
+            .map_err(|e| AnalyzerError::RuleEngineError(format!("rhai error: {e}")))?;
+        if ok {
+            violations.push(RuleViolation {
+                rule_id: rule.id.clone(),
+                description: rule.description.clone(),
+                severity: rule.severity.clone(),
+                location: "program-wide".into(),
+                context: "script condition matched".into(),
+            });
+        }
+    }
     if rule.id == "restricted-helper-funcs" {
         // Expect list of helper names
         let restricted: HashSet<String> = rule

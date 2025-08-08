@@ -4,6 +4,8 @@ mod loader;
 mod output;
 mod utils;
 mod builder;
+mod repl;
+mod samples { pub const DEFAULT_RULES: &str = include_str!("./../rules.yaml"); }
 
 use anyhow::{Result, Context};
 use clap::Parser;
@@ -13,6 +15,8 @@ use env_logger::Env;
 use std::process;
 use utils::cache::Cache;
 use std::path::{Path, PathBuf};
+use indicatif::{ProgressBar, ProgressStyle};
+use futures::stream::{FuturesUnordered, StreamExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,6 +46,28 @@ async fn main() -> Result<()> {
                     process::exit(1);
                 }
             }
+        }
+        Commands::ValidateRules { file } => {
+            match validate_rules_command(file).await {
+                Ok(_) => process::exit(0),
+                Err(e) => {
+                    eprintln!("{}: {:#}", "Error".red().bold(), e);
+                    process::exit(1);
+                }
+            }
+        }
+        Commands::InitRules { out } => {
+            match init_rules_command(out).await {
+                Ok(path) => { println!("Sample rules written to {}", path.display()); process::exit(0) }
+                Err(e) => { eprintln!("{}: {:#}", "Error".red().bold(), e); process::exit(1) }
+            }
+        }
+        Commands::Repl => {
+            if let Err(e) = repl::run_repl(None) {
+                eprintln!("{}: {:#}", "Error".red().bold(), e);
+                process::exit(1)
+            }
+            process::exit(0)
         }
     }
 }
@@ -117,15 +143,27 @@ async fn scan_command(args: cli::ScanArgs) -> Result<i32> {
         // Check cache first if enabled
         analyze_one(&target_path, args.rules.as_deref(), &cache).await?
     } else if let Some(dir) = args.dir.as_ref() {
-        let mut summaries = Vec::new();
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("o") {
-                let s = analyze_one(&path, args.rules.as_deref(), &cache).await?;
-                summaries.push(s);
-            }
+        let entries: Vec<_> = std::fs::read_dir(dir)?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().and_then(|e| e.to_str()) == Some("o")).collect();
+        let pb = ProgressBar::new(entries.len() as u64);
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}").unwrap().progress_chars("=>-"));
+
+        let mut tasks = FuturesUnordered::new();
+        for path in entries.clone() {
+            let rules = args.rules.clone();
+            let cache = cache.clone();
+            tasks.push(async move { (path.clone(), analyze_one(&path, rules.as_deref(), &cache).await) });
         }
+
+        let mut summaries = Vec::with_capacity(entries.len());
+        while let Some((path, res)) = tasks.next().await {
+            pb.set_message(path.display().to_string());
+            match res {
+                Ok(s) => summaries.push(s),
+                Err(e) => eprintln!("{}: {}: {:#}", "Error".red().bold(), path.display(), e),
+            }
+            pb.inc(1);
+        }
+        pb.finish_with_message("Scan complete");
         // Print aggregated output per summary
         for s in &summaries {
             let out = output::formatter::format_output(s, &args.format)?;
@@ -138,14 +176,24 @@ async fn scan_command(args: cli::ScanArgs) -> Result<i32> {
         let mut summaries = Vec::new();
         let cwd = std::env::current_dir()?;
         if pattern == "*.o" {
-            for entry in std::fs::read_dir(cwd)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("o") {
-                    let s = analyze_one(&path, args.rules.as_deref(), &cache).await?;
-                    summaries.push(s);
-                }
+            let entries: Vec<_> = std::fs::read_dir(cwd)?.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.extension().and_then(|e| e.to_str()) == Some("o")).collect();
+            let pb = ProgressBar::new(entries.len() as u64);
+            pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}").unwrap().progress_chars("=>-"));
+            let mut tasks = FuturesUnordered::new();
+            for path in entries.clone() {
+                let rules = args.rules.clone();
+                let cache = cache.clone();
+                tasks.push(async move { (path.clone(), analyze_one(&path, rules.as_deref(), &cache).await) });
             }
+            while let Some((path, res)) = tasks.next().await {
+                pb.set_message(path.display().to_string());
+                match res {
+                    Ok(s) => summaries.push(s),
+                    Err(e) => eprintln!("{}: {}: {:#}", "Error".red().bold(), path.display(), e),
+                }
+                pb.inc(1);
+            }
+            pb.finish_with_message("Scan complete");
         } else {
             anyhow::bail!("Unsupported glob pattern: {}", pattern);
         }
@@ -155,7 +203,7 @@ async fn scan_command(args: cli::ScanArgs) -> Result<i32> {
         }
         return Ok(0);
     } else {
-        unreachable!("Either file or live must be specified");
+        anyhow::bail!("No input specified. Use --file, --dir, or --glob.");
     };
     
     // Format and display results
@@ -220,4 +268,27 @@ async fn analyze_one(
         cache.store(path, &summary)?;
     }
     Ok(summary)
+}
+
+// Helper used by REPL (sync wrapper over async path)
+pub fn main_analyze_file(path: &Path) -> anyhow::Result<analyzer::ScanSummary> {
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(async move { analyze_one(&path.to_path_buf(), None, &None).await })
+}
+
+async fn validate_rules_command(file: PathBuf) -> anyhow::Result<()> {
+    let content = std::fs::read_to_string(&file)
+        .with_context(|| format!("Failed to read {}", file.display()))?;
+    let _: Vec<analyzer::rule_engine::Rule> = serde_yaml::from_str(&content)
+        .with_context(|| format!("Failed to parse YAML in {}", file.display()))?;
+    println!("Rules OK: {}", file.display());
+    Ok(())
+}
+
+async fn init_rules_command(out: Option<PathBuf>) -> anyhow::Result<PathBuf> {
+    let path = out.unwrap_or_else(|| PathBuf::from("rules.sample.yaml"));
+    if path.exists() { anyhow::bail!("{} already exists", path.display()); }
+    std::fs::write(&path, samples::DEFAULT_RULES)
+        .with_context(|| format!("Failed to write {}", path.display()))?;
+    Ok(path)
 }

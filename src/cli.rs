@@ -24,6 +24,20 @@ pub enum Commands {
     Scan(ScanArgs),
     /// Build and optionally scan eBPF programs
     Build(BuildArgs),
+    /// Validate a YAML rules file without running analysis
+    ValidateRules {
+        /// Path to rules YAML
+        #[arg(short, long)]
+        file: PathBuf,
+    },
+    /// Create a sample rules file
+    InitRules {
+        /// Output path (default: rules.sample.yaml)
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+    /// Interactive REPL to explore analysis results
+    Repl,
 }
 
 /// Arguments for the build command

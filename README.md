@@ -20,28 +20,89 @@ A Rust-based CLI tool for performing static semantic and behavioral analysis of 
 
 #### Required
 - Rust (latest stable version)
-- LLVM/Clang with BPF target support
+- LLVM 17 with BPF target support (for full functionality)
 
-#### Installing LLVM with BPF support
+#### Optional
+- Clang (for building eBPF C programs)
 
-ebguard requires LLVM/Clang with BPF target support. Install it using your system's package manager:
+#### Quick Dependency Check
+
+We provide a script to check your environment:
 
 ```bash
-# On macOS
-brew install llvm
+# Make script executable
+chmod +x scripts/check_deps.sh
 
-# On Ubuntu/Debian
-sudo apt install llvm clang
-
-# On Fedora/RHEL
-sudo dnf install llvm clang
-
-# Verify LLVM installation
-clang --version
-llc --version | grep bpf  # Should show BPF in supported targets
+# Run dependency check
+./scripts/check_deps.sh
 ```
 
-ebguard will automatically detect LLVM in standard system locations. On macOS, it will check Homebrew's LLVM installation first (`/usr/local/opt/llvm/bin/clang`).
+#### Installing Dependencies
+
+1. **Rust**
+   ```bash
+   # Install Rust from https://rustup.rs/
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+
+2. **LLVM 17**
+   ```bash
+   # On macOS
+   brew install llvm@17
+   export LLVM_SYS_170_PREFIX="/opt/homebrew/opt/llvm@17"  # Apple Silicon
+   # or: export LLVM_SYS_170_PREFIX="/usr/local/opt/llvm@17"  # Intel Mac
+
+   # On Ubuntu/Debian
+   sudo apt install llvm-17-dev clang-17
+
+   # On Fedora/RHEL
+   sudo dnf install llvm17-devel clang17
+   ```
+
+3. **Verify LLVM/Clang Installation**
+   ```bash
+   clang --version
+   llc --version | grep bpf  # Should show BPF in supported targets
+   ```
+
+#### Installation Options
+
+1. **Full Installation (with LLVM)**
+   - Includes all features
+   - Requires LLVM 17
+   - Best for development and full analysis
+
+2. **Basic Installation (without LLVM)**
+   - Limited functionality
+   - No LLVM dependency
+   - Good for basic analysis and rule checking
+   ```bash
+   # Install without LLVM features
+   cargo install --path . --no-default-features
+   ```
+
+   Features available without LLVM:
+   - ✅ Control flow graph analysis
+   - ✅ Map usage analysis
+   - ✅ Rule engine
+   - ✅ JSON/Table output
+   - ✅ Existing object file analysis
+   - ❌ Building from C source
+   - ❌ LLVM-based optimizations
+   - ❌ Advanced verifier predictions
+
+### Troubleshooting
+
+- Missing LLVM or wrong version
+  - Install LLVM 17 and set `LLVM_SYS_170_PREFIX` (see Prerequisites)
+- `error: unexpected argument '--cfg-dot-out'`
+  - You might be running an old global `ebguard`. Reinstall: `cargo install --path .`
+- Invalid ELF errors
+  - Ensure the file is a BPF object for `EM_BPF` and has a `.text` section
+- BTF map syntax issues when compiling C
+  - Prefer legacy `struct bpf_map_def` for compatibility with provided headers
+- macOS notes
+  - Install `llvm@17` with Homebrew; set the prefix for `llvm-sys`
 
 ### Installation
 
@@ -86,6 +147,19 @@ ebguard scan --file ./program.o --format json
 
 # Strict mode (exit non-zero on high severity)
 ebguard scan --file ./program.o --strict
+
+# Validate a rules file without scanning
+ebguard validate-rules --file ./rules.yaml
+
+# Generate a sample rules file
+ebguard init-rules --out ./rules.sample.yaml
+
+# REPL to explore analyses interactively
+ebguard repl
+
+# Emit CFG visuals
+ebguard scan --file ./program.o --cfg-dot-out program.dot
+ebguard scan --file ./program.o --print-cfg-ascii
 ```
 
 ## Rule System

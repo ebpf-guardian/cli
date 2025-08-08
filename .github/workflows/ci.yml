@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Format
+        run: cargo fmt -- --check
+      - name: Clippy (default features)
+        run: cargo clippy -- -D warnings
+      - name: Test (default features)
+        run: cargo test --all
+      - name: Clippy (no-default-features)
+        run: cargo clippy --no-default-features -- -D warnings
+      - name: Test (no-default-features)
+        run: cargo test --no-default-features --all
+      - name: Clippy (scripting)
+        run: cargo clippy --features scripting -- -D warnings
+      - name: Test (scripting)
+        run: cargo test --features scripting --all
+

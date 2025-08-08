@@ -16,6 +16,7 @@ pub struct CacheEntry {
 }
 
 /// Manages the cache for scanned files
+#[derive(Clone)]
 pub struct Cache {
     cache_dir: PathBuf,
 }
