@@ -1,0 +1,25 @@
+[package]
+name = "ebpf-guardian-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+goblin = "0.7"
+
+[dependencies.ebpf-guardian]
+path = ".."
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_elf_parse"
+path = "fuzz_targets/fuzz_elf_parse.rs"
+test = false
+doc = false
+

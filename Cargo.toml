@@ -52,9 +52,18 @@ optional = true
 assert_cmd = "2.0"
 predicates = "3.1"
 tempfile = "3.10"
+criterion = "0.5"
 
 [profile.release]
 lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[[bench]]
+name = "cfg"
+harness = false
+
+[[bench]]
+name = "disasm"
+harness = false
