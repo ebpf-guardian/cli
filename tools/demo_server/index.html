@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>eBPF Guardian Demo</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 2rem; }
+    .row { display: flex; gap: 1rem; }
+    .col { flex: 1; }
+    #out { white-space: pre-wrap; border: 1px solid #ddd; padding: 1rem; min-height: 300px; }
+    #term { white-space: pre-wrap; border: 1px solid #ddd; padding: 1rem; min-height: 200px; background: #111; color: #ddd; }
+    #metrics { border: 1px solid #eee; padding: 1rem; }
+    #metrics h3 { margin-top: 0; }
+    .metric { display: grid; grid-template-columns: 1.6fr 1fr 2.2fr; gap: .5rem; padding: .25rem 0; border-bottom: 1px dashed #eee; }
+    .metric .label { font-weight: 600; }
+    .metric .value { font-variant-numeric: tabular-nums; }
+    .metric .desc { color: #555; }
+    .chip { display: inline-block; padding: .1rem .4rem; border-radius: .4rem; font-size: .85rem; }
+    .chip.warn { background: #fff3cd; color: #856404; }
+    .chip.crit { background: #f8d7da; color: #721c24; }
+    .muted { color: #888; }
+  </style>
+</head>
+<body>
+  <h1>eBPF Guardian Demo</h1>
+  <div>
+    <label>Samples:</label>
+    <select id="samples"></select>
+    <button id="scanText">Scan (text)</button>
+    <button id="scanJson">Scan (json)</button>
+  </div>
+  <div class="row" style="margin-top:1rem;">
+    <div class="col">
+      <div><strong>Output</strong></div>
+      <div id="out"></div>
+      <div id="metrics" style="margin-top:1rem;">
+        <h3>Key Metrics and Implications</h3>
+        <div id="metrics-body" class="muted">Run "Scan (json)" to populate metrics.</div>
+      </div>
+    </div>
+    <div class="col">
+      <div><strong>Terminal (WS)</strong></div>
+      <div id="term"></div>
+      <input id="cmd" style="width:100%;" placeholder="ebguard scan --file sample:simple --format json" />
+      <button id="send">Send</button>
+    </div>
+  </div>
+  <script>
+  const METRIC_INFO = {
+    cyclomatic_complexity: {
+      label: 'Cyclomatic Complexity',
+      desc: 'Higher values increase verifier path explosion. Keep low to reduce verification time and rejections.'
+    },
+    conditional_branch_count: {
+      label: 'Conditional Branches',
+      desc: 'More branches multiply execution paths. Excessive branching can cause verifier timeouts.'
+    },
+    path_count_estimate: {
+      label: 'Path Count (estimate)',
+      desc: 'Upper-bound on paths. Very high counts are a strong indicator of verifier scalability risk.'
+    },
+    path_count_exact: {
+      label: 'Path Count (exact, capped)',
+      desc: 'Exact simple paths (capped). Useful for smaller programs.'
+    },
+    max_stack_depth: {
+      label: 'Max Stack Depth (bytes)',
+      desc: '> 512 bytes may be rejected by verifier or flagged (the analyzer emits a warning > 512).'
+    },
+    cfg_max_depth: {
+      label: 'CFG Max Depth',
+      desc: 'Deep graphs indicate complex control flow and potential verifier stress.'
+    },
+    cfg_avg_out_degree: {
+      label: 'CFG Avg Out-Degree',
+      desc: 'Average branching factor; higher values mean more fan-out across the graph.'
+    },
+    cfg_max_out_degree: {
+      label: 'CFG Max Out-Degree',
+      desc: 'Worst-case branching at a node; spikes can signal hotspots for complexity.'
+    },
+    cfg_unreachable_blocks: {
+      label: 'Unreachable Blocks',
+      desc: 'Dead code can confuse analysis and should be removed for clarity and verifier friendliness.'
+    }
+  };
+
+  function badgeFor(summary) {
+    const badges = [];
+    if (summary.cyclomatic_complexity > 200 || summary.path_count_estimate > 1000 || summary.conditional_branch_count > 12) {
+      badges.push('<span class="chip warn">Verifier scaling risk</span>');
+    }
+    if (summary.max_stack_depth > 512) {
+      badges.push('<span class="chip crit">Stack depth limit exceeded</span>');
+    }
+    return badges.join(' ');
+  }
+
+  function renderMetrics(summary) {
+    const el = document.getElementById('metrics-body');
+    const rows = [];
+    const metrics = [
+      ['cyclomatic_complexity', summary.cyclomatic_complexity],
+      ['conditional_branch_count', summary.conditional_branch_count],
+      ['path_count_estimate', summary.path_count_estimate],
+      ['path_count_exact', summary.path_count_exact ?? 'n/a'],
+      ['max_stack_depth', summary.max_stack_depth],
+      ['cfg_max_depth', summary.cfg_max_depth],
+      ['cfg_avg_out_degree', Number(summary.cfg_avg_out_degree).toFixed(2)],
+      ['cfg_max_out_degree', summary.cfg_max_out_degree],
+      ['cfg_unreachable_blocks', (summary.cfg_unreachable_blocks || []).length]
+    ];
+    const header = `<div style="margin:.25rem 0 1rem 0;">${badgeFor(summary)}</div>`;
+    for (const [key, val] of metrics) {
+      const info = METRIC_INFO[key];
+      if (!info) continue;
+      rows.push(`<div class="metric">
+        <div class="label" title="${info.desc}">${info.label}</div>
+        <div class="value">${val}</div>
+        <div class="desc">${info.desc}</div>
+      </div>`);
+    }
+    el.classList.remove('muted');
+    el.innerHTML = header + rows.join('');
+  }
+
+  async function loadSamples() {
+    const res = await fetch('/api/samples');
+    const arr = await res.json();
+    const sel = document.getElementById('samples');
+    for (const s of arr) {
+      const opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = `${s.id} (${s.description})`;
+      sel.appendChild(opt);
+    }
+  }
+  async function scanSample(fmt) {
+    const id = document.getElementById('samples').value;
+    const url = fmt === 'json' ? `/api/samples/${id}/scan?format=json` : `/api/samples/${id}/scan`;
+    const res = await fetch(url);
+    if (fmt === 'json') {
+      const json = await res.json();
+      document.getElementById('out').textContent = JSON.stringify(json, null, 2);
+      renderMetrics(json);
+    } else {
+      const text = await res.text();
+      document.getElementById('out').textContent = text;
+      document.getElementById('metrics-body').innerHTML = '<span class="muted">Switch to JSON to see metrics with descriptions.</span>';
+    }
+  }
+  function initWS() {
+    const term = document.getElementById('term');
+    const ws = new WebSocket(`ws://${location.host}/api/terminal`);
+    ws.onmessage = (ev) => { term.textContent += ev.data + "\n"; };
+    document.getElementById('send').onclick = () => {
+      const v = document.getElementById('cmd').value;
+      ws.send(v);
+    };
+  }
+  loadSamples();
+  initWS();
+  document.getElementById('scanText').onclick = () => scanSample('text');
+  document.getElementById('scanJson').onclick = () => scanSample('json');
+  </script>
+</body>
+</html>

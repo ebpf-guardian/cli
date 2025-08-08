@@ -6,6 +6,10 @@ authors = ["Your Name <your.email@example.com>"]
 description = "Static analyzer for eBPF programs"
 license = "MIT OR Apache-2.0"
 
+[lib]
+name = "ebpf_guardian"
+path = "src/lib.rs"
+
 [[bin]]
 name = "ebpf-guardian"
 path = "src/main.rs"
@@ -13,6 +17,10 @@ path = "src/main.rs"
 [[bin]]
 name = "ebguard"
 path = "src/main.rs"
+
+[[bin]]
+name = "demo-server"
+path = "tools/demo_server/main.rs"
 
 [features]
 default = ["llvm"]
@@ -43,6 +51,12 @@ indicatif = "0.17"
 futures = "0.3"
 rustyline = "14"
 regex = "1"
+axum = { version = "0.7", features = ["multipart", "ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "limit", "trace", "fs"] }
+uuid = { version = "1", features = ["v4"] }
+tempfile = "3"
+bytes = "1"
 
 [dependencies.rhai]
 version = "1.18"
