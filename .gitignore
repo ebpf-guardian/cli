@@ -23,7 +23,6 @@ target/
 # eBPF-specific
 # Compiled eBPF object files
 *.o
-!eBPF_sample_programs/*.o
 !tests/data/*.o
 # LLVM IR files
 *.ll
