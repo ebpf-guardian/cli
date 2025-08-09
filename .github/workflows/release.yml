@@ -119,7 +119,8 @@ jobs:
         with:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
-          repositories: homebrew-ebpf-guardian
+          owner: ebpf-guardian
+          repositories: '["homebrew-ebpf-guardian"]'
 
       - name: Get release info
         id: release_info
