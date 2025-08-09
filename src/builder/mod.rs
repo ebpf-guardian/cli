@@ -64,7 +64,7 @@ pub async fn build_bpf_program(
     verify_bpf_support(&clang)?;
 
     let mut cmd = Command::new(&clang);
-    cmd.arg(format!("-O{}", opt_level))
+    cmd.arg(format!("-O{opt_level}"))
         .arg("-target")
         .arg("bpf")
         .arg("-c")

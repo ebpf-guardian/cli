@@ -124,17 +124,17 @@ pub fn decode_instruction(raw: u64, offset: usize) -> Result<InstructionInfo> {
             // EXIT
             (0x05, 0x95) => "exit".to_string(),
             // CALL helper
-            (0x05, 0x85) => format!("call {}", imm),
+            (0x05, 0x85) => format!("call {imm}"),
             // LD_IMM_DW has special encoding using next 8 bytes; we'll show generic form
-            (0x00, 0x18) => format!("lddw r{}, {}", dst_reg, imm),
+            (0x00, 0x18) => format!("lddw r{dst_reg}, {imm}"),
             // MOV
             (0x07, _) | (0x04, _) => {
                 // ALU/ALU64
-                let dst = format!("r{}", dst_reg);
+                let dst = format!("r{dst_reg}");
                 let src = if src_is_reg {
-                    format!("r{}", src_reg)
+                    format!("r{src_reg}")
                 } else {
-                    format!("{}", imm)
+                    format!("{imm}")
                 };
                 let op = match op_bits {
                     0xB0 => "mov",
@@ -152,12 +152,12 @@ pub fn decode_instruction(raw: u64, offset: usize) -> Result<InstructionInfo> {
                     0xD0 => "end",
                     _ => "alu",
                 };
-                format!("{} {}, {}", op, dst, src)
+                format!("{op} {dst}, {src}")
             }
             // Memory operations (simplified)
-            (0x02, _) => format!("st [{}], {}", dst_reg, imm),
-            (0x03, _) => format!("stx r{}, r{}", dst_reg, src_reg),
-            (0x01, _) => format!("ldx r{}, [r{}]", dst_reg, src_reg),
+            (0x02, _) => format!("st [{dst_reg}], {imm}"),
+            (0x03, _) => format!("stx r{dst_reg}, r{src_reg}"),
+            (0x01, _) => format!("ldx r{dst_reg}, [r{src_reg}]"),
             // Jumps (simplified)
             (0x05, _) => {
                 let op = match op_bits {
@@ -174,12 +174,12 @@ pub fn decode_instruction(raw: u64, offset: usize) -> Result<InstructionInfo> {
                     _ => "jmp",
                 };
                 if src_is_reg {
-                    format!("{} r{}, r{}, +{}", op, dst_reg, src_reg, imm)
+                    format!("{op} r{dst_reg}, r{src_reg}, +{imm}")
                 } else {
-                    format!("{} r{}, {}, +{}", op, dst_reg, imm, imm)
+                    format!("{op} r{dst_reg}, {imm}, +{imm}")
                 }
             }
-            _ => format!("inst_{:#x} r{}, r{}, {}", opcode, dst_reg, src_reg, imm),
+            _ => format!("inst_{opcode:#x} r{dst_reg}, r{src_reg}, {imm}"),
         }
     };
 
@@ -189,7 +189,7 @@ pub fn decode_instruction(raw: u64, offset: usize) -> Result<InstructionInfo> {
         src_reg,
         dst_reg,
         imm,
-        class: format!("{:?}", class),
+        class: format!("{class:?}"),
         disassembly,
     })
 }

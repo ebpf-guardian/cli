@@ -11,7 +11,7 @@ mod samples {
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use cli::{Cli, Commands, OutputFormat};
+use cli::{Cli, Commands};
 use colored::*;
 use env_logger::Env;
 use futures::stream::{FuturesUnordered, StreamExt};
@@ -32,23 +32,23 @@ async fn main() -> Result<()> {
         Commands::Scan(args) => match scan_command(args).await {
             Ok(exit_code) => process::exit(exit_code),
             Err(e) => {
-                eprintln!("{}: {:#}", "Error".red().bold(), e);
-                log::debug!("Detailed error: {:#?}", e);
+                eprintln!("{}: {e:#}", "Error".red().bold());
+                log::debug!("Detailed error: {e:#?}");
                 process::exit(1);
             }
         },
         Commands::Build(args) => match build_command(args).await {
             Ok(exit_code) => process::exit(exit_code),
             Err(e) => {
-                eprintln!("{}: {:#}", "Error".red().bold(), e);
-                log::debug!("Detailed error: {:#?}", e);
+                eprintln!("{}: {e:#}", "Error".red().bold());
+                log::debug!("Detailed error: {e:#?}");
                 process::exit(1);
             }
         },
         Commands::ValidateRules { file } => match validate_rules_command(file).await {
             Ok(_) => process::exit(0),
             Err(e) => {
-                eprintln!("{}: {:#}", "Error".red().bold(), e);
+                eprintln!("{}: {e:#}", "Error".red().bold());
                 process::exit(1);
             }
         },
@@ -58,13 +58,13 @@ async fn main() -> Result<()> {
                 process::exit(0)
             }
             Err(e) => {
-                eprintln!("{}: {:#}", "Error".red().bold(), e);
+                eprintln!("{}: {e:#}", "Error".red().bold());
                 process::exit(1)
             }
         },
         Commands::Repl => {
             if let Err(e) = repl::run_repl(None) {
-                eprintln!("{}: {:#}", "Error".red().bold(), e);
+                eprintln!("{}: {e:#}", "Error".red().bold());
                 process::exit(1)
             }
             process::exit(0)
@@ -239,7 +239,7 @@ async fn scan_command(args: cli::ScanArgs) -> Result<i32> {
 
     // Format and display results
     let output = output::formatter::format_output(&summary, &args.format)?;
-    println!("{}", output);
+    println!("{output}");
 
     // Emit CFG outputs if requested
     if let Some(dot_path) = args.cfg_dot_out.as_ref() {
@@ -259,7 +259,7 @@ async fn scan_command(args: cli::ScanArgs) -> Result<i32> {
     }
     if args.print_cfg_ascii {
         if let Some(ascii) = summary.cfg_ascii.as_ref() {
-            println!("\nCFG (ASCII)\n{}", ascii);
+            println!("\nCFG (ASCII)\n{ascii}");
         }
     }
 
@@ -287,7 +287,7 @@ async fn scan_command(args: cli::ScanArgs) -> Result<i32> {
 }
 
 async fn analyze_one(
-    path: &PathBuf,
+    path: &Path,
     rules: Option<&Path>,
     cache: &Option<Cache>,
 ) -> anyhow::Result<analyzer::ScanSummary> {
@@ -309,7 +309,7 @@ async fn analyze_one(
 // Helper used by REPL (sync wrapper over async path)
 pub fn main_analyze_file(path: &Path) -> anyhow::Result<analyzer::ScanSummary> {
     let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(async move { analyze_one(&path.to_path_buf(), None, &None).await })
+    rt.block_on(async move { analyze_one(path, None, &None).await })
 }
 
 async fn validate_rules_command(file: PathBuf) -> anyhow::Result<()> {

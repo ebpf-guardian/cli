@@ -79,7 +79,7 @@ pub fn parse_maps(path: &Path) -> Result<Vec<BpfMap>> {
                 let name = sym_name_by_addr
                     .get(&obj_addr)
                     .cloned()
-                    .unwrap_or_else(|| format!("map_{}", idx));
+                    .unwrap_or_else(|| format!("map_{idx}"));
 
                 maps.push(BpfMap {
                     name,
@@ -102,11 +102,7 @@ pub fn parse_maps(path: &Path) -> Result<Vec<BpfMap>> {
         if name.starts_with(".text/") || name == "xdp" || name.starts_with("xdp/") {
             // We could parse relocations here to link maps per program.
             // Leave as-is for now; map names are already captured above.
-            let _program_name = if name.starts_with(".text/") {
-                &name[6..]
-            } else {
-                name
-            };
+            let _program_name = name.strip_prefix(".text/").unwrap_or(name);
             let _ = _program_name; // suppress unused for now
         }
     }

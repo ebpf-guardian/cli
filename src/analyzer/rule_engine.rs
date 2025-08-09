@@ -137,7 +137,7 @@ fn evaluate_instruction_rule(
                     description: rule.description.clone(),
                     severity: rule.severity.clone(),
                     location: format!("offset:{}", inst.offset),
-                    context: format!("matches regex: {}", pat),
+                    context: format!("matches regex: {pat}"),
                 });
             }
         }

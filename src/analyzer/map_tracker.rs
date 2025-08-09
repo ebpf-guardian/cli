@@ -1,5 +1,6 @@
 use super::{MapInfo, Result};
 use crate::loader::elf_parser;
+use std::fmt;
 use std::path::Path;
 
 /// Map types as defined in linux/bpf.h
@@ -22,13 +23,15 @@ impl BpfMapType {
             _ => None,
         }
     }
+}
 
-    pub fn to_string(&self) -> String {
+impl fmt::Display for BpfMapType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BpfMapType::Hash => "HASH".to_string(),
-            BpfMapType::Array => "ARRAY".to_string(),
-            BpfMapType::ProgArray => "PROG_ARRAY".to_string(),
-            BpfMapType::PerfEventArray => "PERF_EVENT_ARRAY".to_string(),
+            BpfMapType::Hash => write!(f, "HASH"),
+            BpfMapType::Array => write!(f, "ARRAY"),
+            BpfMapType::ProgArray => write!(f, "PROG_ARRAY"),
+            BpfMapType::PerfEventArray => write!(f, "PERF_EVENT_ARRAY"),
         }
     }
 }
@@ -71,6 +74,7 @@ pub fn analyze_maps(path: &Path) -> Result<Vec<MapInfo>> {
 }
 
 /// Extract map access patterns from instructions
+#[allow(dead_code)]
 pub fn analyze_map_access(_instructions: &[super::InstructionInfo]) -> Result<Vec<MapAccess>> {
     let accesses = Vec::new();
 
@@ -85,6 +89,7 @@ pub fn analyze_map_access(_instructions: &[super::InstructionInfo]) -> Result<Ve
 
 /// Represents a map access operation
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MapAccess {
     /// Map identifier
     pub map_id: String,
@@ -96,6 +101,7 @@ pub struct MapAccess {
 
 /// Type of map access
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum AccessType {
     Read,
     Write,

@@ -4,11 +4,7 @@ use rustyline::DefaultEditor;
 pub fn run_repl(mut state: Option<ScanSummary>) -> anyhow::Result<()> {
     let mut rl = DefaultEditor::new()?;
     println!("ebguard REPL (help: ':help', quit: ':q')");
-    loop {
-        let line = match rl.readline("ebguard> ") {
-            Ok(l) => l,
-            Err(_) => break,
-        };
+    while let Ok(line) = rl.readline("ebguard> ") {
         match line.trim() {
             ":q" | ":quit" => break,
             ":help" => {

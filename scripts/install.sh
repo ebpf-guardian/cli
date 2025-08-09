@@ -7,7 +7,7 @@ set -euo pipefail
 # - Builds and installs ebguard via cargo
 #
 # Usage (recommended):
-#   curl -fsSL https://raw.githubusercontent.com/glnreddy/ebpf-guardian/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/ebpf-guardian/cli/main/scripts/install.sh | bash
 #
 # Flags/env:
 #   EBG_NO_SUDO=1             # Avoid sudo for package installs (if already root)
@@ -137,12 +137,12 @@ install_ebguard() {
     . "$HOME/.cargo/env"
   fi
 
-  local cargo_args=(--locked --git https://github.com/ebpf-guardian/cli.git --bin ebguard)
+  local cargo_args="--locked --git https://github.com/ebpf-guardian/cli.git ebpf-guardian --bin ebguard"
 
   # Prefer LLVM-enabled build unless explicitly disabled
   if [ "${EBG_NO_LLVM:-}" = "1" ]; then
     warn "EBG_NO_LLVM=1 set; installing minimal build without LLVM features"
-    cargo_args+=(--no-default-features)
+    cargo_args+=" --no-default-features"
   fi
 
   # CC/CXX selection when specific versioned clang exists
@@ -153,13 +153,13 @@ install_ebguard() {
     fi
   fi
 
-  if cargo install "${cargo_args[@]}"; then
+  if cargo install $cargo_args; then
     ok "ebguard installed successfully"
     return 0
   fi
 
   warn "Full install failed. Falling back to minimal build without LLVM features..."
-  cargo install --locked --git https://github.com/ebpf-guardian/cli.git --bin ebguard --no-default-features
+  cargo install --locked --git https://github.com/ebpf-guardian/cli.git ebpf-guardian --bin ebguard --no-default-features
   ok "ebguard minimal install completed"
 }
 
@@ -181,10 +181,57 @@ main() {
   ensure_rust
   install_ebguard
 
+  # Add LLVM config to shell if available
+  if [ -n "${LLVM_SYS_170_PREFIX:-}" ]; then
+    SHELL_RC="$HOME/.$(basename "$SHELL")rc"
+    if [ -f "$SHELL_RC" ]; then
+      if ! grep -q "LLVM_SYS_170_PREFIX" "$SHELL_RC"; then
+        echo "export LLVM_SYS_170_PREFIX=\"$LLVM_SYS_170_PREFIX\"" >> "$SHELL_RC"
+        ok "Added LLVM configuration to $SHELL_RC"
+      fi
+    fi
+  fi
+
   echo
   ok "Ready to use! Try:"
   echo "  ebguard --help"
-  echo "  ebguard scan --file ./tests/data/simple.o --format table"
+
+  # Show appropriate usage guidance based on LLVM availability
+  if [ -n "${LLVM_SYS_170_PREFIX:-}" ]; then
+    echo
+    ok "LLVM 17 support is enabled. You can:"
+    echo "  1. Scan pre-compiled eBPF object files:"
+    echo "     ebguard scan --file path/to/program.o"
+    echo "  2. Build and scan C source files directly:"
+    echo "     ebguard build --file path/to/program.c"
+    echo
+    info "LLVM config will be available in new shells."
+    info "For this shell, run: export LLVM_SYS_170_PREFIX=\"$LLVM_SYS_170_PREFIX\""
+  else
+    echo
+    warn "LLVM 17 is not available. Limited functionality:"
+    echo "  • You can only scan pre-compiled eBPF object (.o) files"
+    echo "  • C source file compilation is not available"
+    echo
+    info "To enable full functionality, install LLVM 17:"
+    case "$OS_NAME" in
+      Darwin)
+        echo "  brew install llvm@17"
+        ;;
+      Linux)
+        case "$(detect_distro)" in
+          debian|ubuntu|linuxmint|pop|neon)
+            echo "  sudo apt-get install llvm-17-dev clang-17"
+            ;;
+          fedora|rhel|centos|rocky|almalinux)
+            echo "  sudo dnf install llvm17-devel clang17"
+            ;;
+        esac
+        ;;
+    esac
+    echo
+    info "Then reinstall ebguard with: curl -fsSL https://raw.githubusercontent.com/ebpf-guardian/cli/main/scripts/install.sh | bash"
+  fi
 }
 
 main "$@"

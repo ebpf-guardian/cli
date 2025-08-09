@@ -80,6 +80,6 @@ impl Cache {
     /// Gets cache file path for a given input file
     fn get_cache_path(&self, file_path: &Path) -> PathBuf {
         let file_name = file_path.file_name().unwrap_or_default().to_string_lossy();
-        self.cache_dir.join(format!("{}.cache.json", file_name))
+        self.cache_dir.join(format!("{file_name}.cache.json"))
     }
 }

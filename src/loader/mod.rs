@@ -5,6 +5,8 @@ pub mod elf_parser;
 
 /// Common error type for loader operations
 #[derive(Debug, thiserror::Error)]
+#[allow(dead_code)]
+#[allow(clippy::enum_variant_names)]
 pub enum LoaderError {
     #[error("ELF parsing error: {0}")]
     ElfError(String),
@@ -20,4 +22,5 @@ pub enum LoaderError {
 }
 
 /// Result type for loader operations
+#[allow(dead_code)]
 pub type Result<T> = std::result::Result<T, LoaderError>;

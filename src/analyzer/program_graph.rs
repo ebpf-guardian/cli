@@ -6,6 +6,7 @@ use petgraph::visit::EdgeRef;
 
 /// Represents a basic block in the control flow graph
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct BasicBlock {
     /// Start offset of the block
     pub start_offset: usize,
@@ -17,6 +18,7 @@ pub struct BasicBlock {
 
 /// Control flow graph for an eBPF program
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct ControlFlowGraph {
     /// Graph representation
     pub graph: DiGraph<BasicBlock, ()>,
@@ -63,6 +65,7 @@ pub struct ProgramAnalysis {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Loop {
     /// Start offset of the loop
     pub start_offset: usize,
@@ -75,6 +78,7 @@ pub struct Loop {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct HelperCall {
     /// Helper function ID
     pub helper_id: u32,
@@ -85,6 +89,7 @@ pub struct HelperCall {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct ArgInfo {
     /// Argument register
     pub reg: u8,
@@ -104,6 +109,7 @@ pub enum ArgType {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct MapAccess {
     /// Map identifier
     pub map_id: String,
@@ -116,6 +122,7 @@ pub struct MapAccess {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum AccessType {
     Read,
     Write,
@@ -485,16 +492,10 @@ fn analyze_stack_depth(instructions: &[InstructionInfo]) -> usize {
     let mut current_depth = 0;
 
     for inst in instructions {
-        match inst.opcode {
-            0x7f => {
-                // STX
-                if inst.dst_reg == 10 {
-                    // r10 is stack pointer
-                    current_depth = current_depth.max((-inst.imm) as usize);
-                    max_depth = max_depth.max(current_depth);
-                }
-            }
-            _ => {}
+        if inst.opcode == 0x7f && inst.dst_reg == 10 {
+            // STX to r10 (stack pointer)
+            current_depth = current_depth.max((-inst.imm) as usize);
+            max_depth = max_depth.max(current_depth);
         }
     }
 
@@ -523,7 +524,7 @@ fn analyze_map_accesses(
                     1 => {
                         // bpf_map_lookup_elem
                         accesses.push(MapAccess {
-                            map_id: format!("map_{}", inst.src_reg),
+                            map_id: format!("map_{src_reg}", src_reg = inst.src_reg),
                             access_type: AccessType::Read,
                             in_loop,
                             has_bounds_check: has_null_check_after(inst, instructions),
@@ -532,7 +533,7 @@ fn analyze_map_accesses(
                     2 => {
                         // bpf_map_update_elem
                         accesses.push(MapAccess {
-                            map_id: format!("map_{}", inst.src_reg),
+                            map_id: format!("map_{src_reg}", src_reg = inst.src_reg),
                             access_type: AccessType::Write,
                             in_loop,
                             has_bounds_check: true, // Update always checks bounds
@@ -603,6 +604,35 @@ fn find_unreachable_blocks(cfg: &ControlFlowGraph) -> Vec<usize> {
     unreachable
 }
 
+struct DfsContext<'a> {
+    cfg: &'a ControlFlowGraph,
+    exits: &'a std::collections::HashSet<NodeIndex>,
+    visited: &'a mut std::collections::HashSet<NodeIndex>,
+    path_count: &'a mut usize,
+    max_depth: &'a mut usize,
+    cap: usize,
+}
+
+impl<'a> DfsContext<'a> {
+    fn new(
+        cfg: &'a ControlFlowGraph,
+        exits: &'a std::collections::HashSet<NodeIndex>,
+        visited: &'a mut std::collections::HashSet<NodeIndex>,
+        path_count: &'a mut usize,
+        max_depth: &'a mut usize,
+        cap: usize,
+    ) -> Self {
+        Self {
+            cfg,
+            exits,
+            visited,
+            path_count,
+            max_depth,
+            cap,
+        }
+    }
+}
+
 /// Computes the number of simple paths (capped) and maximum depth from entry to any exit
 fn compute_paths_and_depth(cfg: &ControlFlowGraph) -> (Option<usize>, usize) {
     let entry = match cfg.entry {
@@ -628,59 +658,41 @@ fn compute_paths_and_depth(cfg: &ControlFlowGraph) -> (Option<usize>, usize) {
     let mut path_count: usize = 0;
     let mut max_depth: usize = 0;
     let mut visited: std::collections::HashSet<NodeIndex> = std::collections::HashSet::new();
-
-    fn dfs(
-        cfg: &ControlFlowGraph,
-        current: NodeIndex,
-        exits: &std::collections::HashSet<NodeIndex>,
-        visited: &mut std::collections::HashSet<NodeIndex>,
-        depth: usize,
-        path_count: &mut usize,
-        max_depth: &mut usize,
-        cap: usize,
-    ) {
-        if *path_count >= cap {
-            return;
-        }
-        if exits.contains(&current) {
-            *path_count += 1;
-            if depth > *max_depth {
-                *max_depth = depth;
-            }
-            return;
-        }
-        visited.insert(current);
-        for succ in cfg.successors(current) {
-            if visited.contains(&succ) {
-                continue;
-            }
-            dfs(
-                cfg,
-                succ,
-                exits,
-                visited,
-                depth + 1,
-                path_count,
-                max_depth,
-                cap,
-            );
-            if *path_count >= cap {
-                break;
-            }
-        }
-        visited.remove(&current);
-    }
-
     let exit_set: std::collections::HashSet<NodeIndex> = exits.into_iter().collect();
-    dfs(
+
+    let mut ctx = DfsContext::new(
         cfg,
-        entry,
         &exit_set,
         &mut visited,
-        0,
         &mut path_count,
         &mut max_depth,
         cap,
     );
+
+    fn dfs(ctx: &mut DfsContext, current: NodeIndex, depth: usize) {
+        if *ctx.path_count >= ctx.cap {
+            return;
+        }
+        if ctx.exits.contains(&current) {
+            *ctx.path_count += 1;
+            *ctx.max_depth = (*ctx.max_depth).max(depth);
+            return;
+        }
+        if ctx.visited.contains(&current) {
+            return;
+        }
+        ctx.visited.insert(current);
+
+        for succ in ctx.cfg.successors(current) {
+            dfs(ctx, succ, depth + 1);
+            if *ctx.path_count >= ctx.cap {
+                break;
+            }
+        }
+
+        ctx.visited.remove(&current);
+    }
+
+    dfs(&mut ctx, entry, 0);
     (Some(path_count.min(cap)), max_depth)
 }

@@ -5,6 +5,7 @@ use log::LevelFilter;
 use std::io::Write;
 
 /// Initializes the logger with custom formatting
+#[allow(dead_code)]
 pub fn init() -> Result<()> {
     Builder::from_env(Env::default().default_filter_or("info"))
         .format(|buf, record| {
@@ -29,6 +30,7 @@ pub fn init() -> Result<()> {
 }
 
 /// Sets the global maximum log level
+#[allow(dead_code)]
 pub fn set_max_level(level: LevelFilter) {
     log::set_max_level(level);
 }

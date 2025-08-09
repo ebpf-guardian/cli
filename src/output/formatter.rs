@@ -145,7 +145,7 @@ fn format_json(summary: &ScanSummary) -> Result<String> {
         let trimmed = line.trim();
 
         if trimmed.is_empty() {
-            colored_json.push_str("\n");
+            colored_json.push('\n');
             continue;
         }
 
@@ -182,7 +182,7 @@ fn format_json(summary: &ScanSummary) -> Result<String> {
         } else {
             colored_json.push_str(content);
         }
-        colored_json.push_str("\n");
+        colored_json.push('\n');
     }
 
     Ok(colored_json)
@@ -194,7 +194,7 @@ pub fn generate_report(summary: &ScanSummary, output_path: &Path) -> Result<()> 
 
     // Header
     report.push_str("# eBPF Program Analysis Report\n\n");
-    report.push_str(&format!("## Program Information\n\n"));
+    report.push_str("## Program Information\n\n");
     report.push_str(&format!("- **File:** {}\n", summary.program_path));
     report.push_str(&format!("- **Type:** {}\n", summary.program_type));
     report.push_str(&format!(
@@ -295,7 +295,7 @@ fn generate_recommendations(summary: &ScanSummary, report: &mut String) {
     if !recommendations.is_empty() {
         report.push_str("Consider the following improvements:\n\n");
         for rec in recommendations {
-            report.push_str(&format!("{}\n", rec));
+            report.push_str(&format!("{rec}\n"));
         }
     }
 }
