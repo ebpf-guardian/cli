@@ -146,7 +146,7 @@ fn evaluate_instruction_rule(
     // Scripting (rhai) optional
     #[cfg(feature = "scripting")]
     if let Some(script) = rule.script.as_deref() {
-        let mut engine = rhai::Engine::new();
+        let engine = rhai::Engine::new();
         let mut scope = rhai::Scope::new();
         scope.push("num_instructions", instructions.len() as i64);
         // Add more context bindings as needed

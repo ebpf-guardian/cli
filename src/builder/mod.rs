@@ -1,4 +1,6 @@
-use anyhow::{Context, Result};
+#[cfg(feature = "llvm")]
+use anyhow::Context;
+use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "llvm")]

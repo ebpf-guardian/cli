@@ -5,23 +5,38 @@ on:
   pull_request:
 
 jobs:
-  build_test:
+  test-minimal:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Format
         run: cargo fmt -- --check
-      - name: Clippy (default features)
-        run: cargo clippy -- -D warnings
-      - name: Test (default features)
-        run: cargo test --all
       - name: Clippy (no-default-features)
         run: cargo clippy --no-default-features -- -D warnings
       - name: Test (no-default-features)
         run: cargo test --no-default-features --all
-      - name: Clippy (scripting)
-        run: cargo clippy --features scripting -- -D warnings
-      - name: Test (scripting)
-        run: cargo test --features scripting --all
+      - name: Clippy (scripting only)
+        run: cargo clippy --no-default-features --features scripting -- -D warnings
+      - name: Test (scripting only)
+        run: cargo test --no-default-features --features scripting --all
+
+  test-with-llvm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install LLVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-17-dev libclang-17-dev clang-17
+          echo "LLVM_SYS_170_PREFIX=/usr/lib/llvm-17" >> $GITHUB_ENV
+      - name: Clippy (default features with LLVM)
+        run: cargo clippy -- -D warnings
+      - name: Test (default features with LLVM)
+        run: cargo test --all
+      - name: Clippy (all features)
+        run: cargo clippy --all-features -- -D warnings
+      - name: Test (all features)
+        run: cargo test --all-features --all
 
