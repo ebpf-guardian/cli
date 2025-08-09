@@ -468,6 +468,7 @@ fn analyze_loop_bound(
 }
 
 /// Counts unique paths through the program
+#[allow(dead_code)]
 fn count_paths(graph: &DiGraph<BasicBlock, ()>, limit: usize) -> usize {
     use petgraph::visit::DfsPostOrder;
     let mut count = 0;
