@@ -137,7 +137,7 @@ install_ebguard() {
     . "$HOME/.cargo/env"
   fi
 
-  local cargo_args=(--locked --git https://github.com/glnreddy/ebpf-guardian.git --bin ebguard)
+  local cargo_args=(--locked --git https://github.com/ebpf-guardian/cli.git --bin ebguard)
 
   # Prefer LLVM-enabled build unless explicitly disabled
   if [ "${EBG_NO_LLVM:-}" = "1" ]; then
@@ -159,7 +159,7 @@ install_ebguard() {
   fi
 
   warn "Full install failed. Falling back to minimal build without LLVM features..."
-  cargo install --locked --git https://github.com/glnreddy/ebpf-guardian.git --bin ebguard --no-default-features
+  cargo install --locked --git https://github.com/ebpf-guardian/cli.git --bin ebguard --no-default-features
   ok "ebguard minimal install completed"
 }
 

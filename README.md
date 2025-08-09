@@ -1,7 +1,7 @@
 # eBPF Guardian
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://github.com/yourusername/ebpf-guardian/actions/workflows/rust.yml/badge.svg)](https://github.com/yourusername/ebpf-guardian/actions/workflows/rust.yml)
+[![Rust](https://github.com/ebpf-guardian/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/ebpf-guardian/cli/actions/workflows/ci.yml)
 
 A Rust-based CLI tool for performing static semantic and behavioral analysis of eBPF programs from compiled object files.
 
@@ -15,6 +15,16 @@ A Rust-based CLI tool for performing static semantic and behavioral analysis of 
 - **Multiple Output Formats**: Human-readable and JSON output
 
 ## Quick Install
+
+### Option 1: Homebrew (macOS)
+
+```bash
+# Add our tap and install
+brew tap ebpf-guardian/homebrew-ebpf-guardian
+brew install ebpf-guardian
+```
+
+### Option 2: Install Script
 
 ```bash
 curl -fsSL https://install.ebpf-guardian.com | bash
@@ -43,7 +53,7 @@ EBG_CHANNEL=nightly curl -fsSL https://install.ebpf-guardian.com | bash
 If you prefer, you can still use the raw GitHub URL:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/glnreddy/ebpf-guardian/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ebpf-guardian/cli/main/scripts/install.sh | bash
 ```
 
 ## Installation
@@ -140,8 +150,8 @@ chmod +x scripts/check_deps.sh
 
 ```bash
 # Clone the repository
-git clone https://github.com/glnreddy/ebpf-guardian.git
-cd ebpf-guardian
+git clone https://github.com/ebpf-guardian/cli.git
+cd cli
 
 # Install globally (recommended)
 cargo install --path .
