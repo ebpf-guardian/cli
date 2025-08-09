@@ -143,10 +143,14 @@ jobs:
         uses: dawidd6/action-homebrew-bump-formula@v3
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Force exact tag to be used
+          HOMEBREW_BUMP_FORMULA_TAG: ${{ steps.release_info.outputs.tag }}
         with:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           tap: ebpf-guardian/homebrew-ebpf-guardian
           formula: ebpf-guardian
           tag: ${{ steps.release_info.outputs.tag }}
-          version: ${{ steps.release_info.outputs.version }}
-          revision: ${{ github.sha }}
+          message: |
+            Automated release ${{ steps.release_info.outputs.tag }}
+            
+            Created by GitHub Actions
