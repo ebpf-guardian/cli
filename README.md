@@ -14,6 +14,38 @@ A Rust-based CLI tool for performing static semantic and behavioral analysis of 
 - **Rule Engine**: Apply custom security and best practice rules
 - **Multiple Output Formats**: Human-readable and JSON output
 
+## Quick Install
+
+```bash
+curl -fsSL https://install.ebpf-guardian.com | bash
+```
+
+- Automatically detects your platform (macOS, Debian/Ubuntu, Fedora)
+- Installs Rust and LLVM 17 when needed
+- Builds and installs the `ebguard` CLI
+
+Optional environment flags:
+
+- `EBG_NO_LLVM=1` to install a minimal build without LLVM features
+- `EBG_CHANNEL=<stable|beta|nightly>` to pick Rust toolchain (default: stable)
+- `EBG_NO_SUDO=1` to avoid sudo if you are already root
+
+Examples:
+
+```bash
+# Minimal install without LLVM features
+EBG_NO_LLVM=1 curl -fsSL https://install.ebpf-guardian.com | bash
+
+# Use nightly Rust toolchain
+EBG_CHANNEL=nightly curl -fsSL https://install.ebpf-guardian.com | bash
+```
+
+If you prefer, you can still use the raw GitHub URL:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/glnreddy/ebpf-guardian/main/scripts/install.sh | bash
+```
+
 ## Installation
 
 ### Prerequisites
@@ -108,7 +140,7 @@ chmod +x scripts/check_deps.sh
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ebpf-guardian.git
+git clone https://github.com/glnreddy/ebpf-guardian.git
 cd ebpf-guardian
 
 # Install globally (recommended)

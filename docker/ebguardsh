@@ -1,0 +1,130 @@
+#!/bin/bash
+set -eu
+
+SAMPLES_DIR="/opt/ebguard/samples"
+
+print_banner() {
+  echo "==========================================="
+  echo " EBGuard Interactive Demo"
+  echo " Version: $(ebguard --version 2>/dev/null || echo 'unknown')"
+  echo " Samples (read-only):"
+  if [ -d "$SAMPLES_DIR" ]; then
+    ls -1 "$SAMPLES_DIR" 2>/dev/null || true
+  else
+    echo "(no samples directory found)"
+  fi
+  echo "==========================================="
+  echo "Type 'help' to see permitted commands."
+}
+
+print_help() {
+  cat <<'EOF'
+Allowed commands:
+  # Basic help and info
+  ebguard --help
+  ebguard -h
+  ebguard --version
+
+  # List and validate
+  ebguard list-samples
+  ebguard validate-rules --file /opt/ebguard/samples/rules.yaml
+  ebguard init-rules --out /opt/ebguard/samples/rules.sample.yaml
+
+  # Scan single files (with different outputs)
+  ebguard scan socket_filter.o --format json
+  ebguard scan socket_filter.o --format table
+  ebguard scan socket_filter.o --report
+  ebguard scan socket_filter.o --strict
+  ebguard scan socket_filter.o --cfg-dot-out /opt/ebguard/samples/socket_filter.dot
+  ebguard scan socket_filter.o --print-cfg-ascii
+
+  # Scan with rules
+  ebguard scan socket_filter.o --rules /opt/ebguard/samples/rules.yaml
+
+  # XDP counter sample
+  ebguard scan xdp_counter.o --format json
+  ebguard scan xdp_counter.o --format table
+  ebguard scan xdp_counter.o --report
+  ebguard scan xdp_counter.o --strict
+  ebguard scan xdp_counter.o --cfg-dot-out /opt/ebguard/samples/xdp_counter.dot
+  ebguard scan xdp_counter.o --print-cfg-ascii
+
+  # Syscall tracer sample
+  ebguard scan syscall_trace.o --format json
+  ebguard scan syscall_trace.o --format table
+  ebguard scan syscall_trace.o --report
+  ebguard scan syscall_trace.o --strict
+  ebguard scan syscall_trace.o --cfg-dot-out /opt/ebguard/samples/syscall_trace.dot
+  ebguard scan syscall_trace.o --print-cfg-ascii
+
+  # Directory and glob scans
+  ebguard scan --dir /opt/ebguard/samples
+  ebguard scan --glob "/opt/ebguard/samples/*.o"
+
+  # Interactive REPL
+  ebguard repl
+EOF
+}
+
+list_samples() {
+  if [ -d "$SAMPLES_DIR" ]; then
+    ls -1 "$SAMPLES_DIR"
+  else
+    echo "No samples available."
+  fi
+}
+
+# Trim whitespace from input
+trim() {
+    local var="$*"
+    # Remove leading and trailing whitespace
+    var="${var#"${var%%[![:space:]]*}"}"
+    var="${var%"${var##*[![:space:]]}"}"
+    echo "$var"
+}
+
+print_banner
+
+while :; do
+  printf "EBGuard> "
+  if ! IFS= read -r cmd; then
+    break
+  fi
+
+  # Trim the command
+  cmd=$(trim "$cmd")
+
+  case "$cmd" in
+    "") continue ;;
+    "help") print_help ;;
+    "ebguard --help") ebguard --help ;;
+    "ebguard -h") ebguard -h ;;
+    "ebguard --version") ebguard --version ;;
+    "ebguard list-samples") list_samples ;;
+    "ebguard validate-rules --file /opt/ebguard/samples/rules.yaml") ebguard validate-rules --file "$SAMPLES_DIR/rules.yaml" ;;
+    "ebguard init-rules --out /opt/ebguard/samples/rules.sample.yaml") ebguard init-rules --out "$SAMPLES_DIR/rules.sample.yaml" ;;
+    "ebguard scan socket_filter.o --format json") ebguard scan --file "$SAMPLES_DIR/socket_filter.o" --format json ;;
+    "ebguard scan socket_filter.o --format table") ebguard scan --file "$SAMPLES_DIR/socket_filter.o" --format table ;;
+    "ebguard scan socket_filter.o --report") ebguard scan --file "$SAMPLES_DIR/socket_filter.o" --report ;;
+    "ebguard scan socket_filter.o --strict") ebguard scan --file "$SAMPLES_DIR/socket_filter.o" --strict ;;
+    "ebguard scan socket_filter.o --cfg-dot-out /opt/ebguard/samples/socket_filter.dot") ebguard scan --file "$SAMPLES_DIR/socket_filter.o" --cfg-dot-out "$SAMPLES_DIR/socket_filter.dot" ;;
+    "ebguard scan socket_filter.o --print-cfg-ascii") ebguard scan --file "$SAMPLES_DIR/socket_filter.o" --print-cfg-ascii ;;
+    "ebguard scan socket_filter.o --rules /opt/ebguard/samples/rules.yaml") ebguard scan --file "$SAMPLES_DIR/socket_filter.o" --rules "$SAMPLES_DIR/rules.yaml" ;;
+    "ebguard scan xdp_counter.o --format json") ebguard scan --file "$SAMPLES_DIR/xdp_counter.o" --format json ;;
+    "ebguard scan xdp_counter.o --format table") ebguard scan --file "$SAMPLES_DIR/xdp_counter.o" --format table ;;
+    "ebguard scan xdp_counter.o --report") ebguard scan --file "$SAMPLES_DIR/xdp_counter.o" --report ;;
+    "ebguard scan xdp_counter.o --strict") ebguard scan --file "$SAMPLES_DIR/xdp_counter.o" --strict ;;
+    "ebguard scan xdp_counter.o --cfg-dot-out /opt/ebguard/samples/xdp_counter.dot") ebguard scan --file "$SAMPLES_DIR/xdp_counter.o" --cfg-dot-out "$SAMPLES_DIR/xdp_counter.dot" ;;
+    "ebguard scan xdp_counter.o --print-cfg-ascii") ebguard scan --file "$SAMPLES_DIR/xdp_counter.o" --print-cfg-ascii ;;
+    "ebguard scan syscall_trace.o --format json") ebguard scan --file "$SAMPLES_DIR/syscall_trace.o" --format json ;;
+    "ebguard scan syscall_trace.o --format table") ebguard scan --file "$SAMPLES_DIR/syscall_trace.o" --format table ;;
+    "ebguard scan syscall_trace.o --report") ebguard scan --file "$SAMPLES_DIR/syscall_trace.o" --report ;;
+    "ebguard scan syscall_trace.o --strict") ebguard scan --file "$SAMPLES_DIR/syscall_trace.o" --strict ;;
+    "ebguard scan syscall_trace.o --cfg-dot-out /opt/ebguard/samples/syscall_trace.dot") ebguard scan --file "$SAMPLES_DIR/syscall_trace.o" --cfg-dot-out "$SAMPLES_DIR/syscall_trace.dot" ;;
+    "ebguard scan syscall_trace.o --print-cfg-ascii") ebguard scan --file "$SAMPLES_DIR/syscall_trace.o" --print-cfg-ascii ;;
+    "ebguard scan --dir /opt/ebguard/samples") ebguard scan --dir "$SAMPLES_DIR" ;;
+    "ebguard scan --glob \"/opt/ebguard/samples/*.o\"") ebguard scan --glob "$SAMPLES_DIR/*.o" ;;
+    "ebguard repl") ebguard repl ;;
+    *) echo "Command not allowed. Type 'help' for permitted commands." ;;
+  esac
+done
