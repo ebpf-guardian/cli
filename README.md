@@ -22,7 +22,13 @@ A Rust-based CLI tool for performing static semantic and behavioral analysis of 
 # Add our tap and install
 brew tap ebpf-guardian/homebrew-ebpf-guardian
 brew install ebpf-guardian
+
+# For full features, ensure LLVM is installed:
+brew install llvm@17
+brew reinstall ebpf-guardian
 ```
+
+> **Note**: If LLVM 17 is not available, you'll get a minimal build that can analyze existing `.o` files but cannot build from C source.
 
 ### Option 2: Install Script
 
