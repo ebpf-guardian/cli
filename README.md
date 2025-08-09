@@ -32,8 +32,14 @@ brew reinstall ebpf-guardian
 
 ### Option 2: Install Script
 
+**Unix/Linux/macOS:**
 ```bash
 curl -fsSL https://install.ebpf-guardian.com | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/ebpf-guardian/cli/main/scripts/install.ps1 | iex
 ```
 
 - Automatically detects your platform (macOS, Debian/Ubuntu, Fedora)
