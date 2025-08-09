@@ -139,18 +139,31 @@ jobs:
           SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
           echo "sha256=$SHA256" >> $GITHUB_OUTPUT
 
-      - name: Update Homebrew Tap
-        uses: dawidd6/action-homebrew-bump-formula@v3
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          # Force exact tag to be used
-          HOMEBREW_BUMP_FORMULA_TAG: ${{ steps.release_info.outputs.tag }}
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
         with:
+          repository: ebpf-guardian/homebrew-ebpf-guardian
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          tap: ebpf-guardian/homebrew-ebpf-guardian
-          formula: ebpf-guardian
-          tag: ${{ steps.release_info.outputs.tag }}
-          message: |
-            Automated release ${{ steps.release_info.outputs.tag }}
-            
-            Created by GitHub Actions
+          path: tap
+
+      - name: Update formula file
+        working-directory: tap
+        run: |
+          TAG='${{ steps.release_info.outputs.tag }}'
+          URL="https://github.com/ebpf-guardian/cli/archive/refs/tags/${TAG}.tar.gz"
+          SHA='${{ steps.sha.outputs.sha256 }}'
+          FORMULA_FILE="Formula/ebpf-guardian.rb"
+
+          # Replace url and sha256 in formula
+          sed -i.bak -E "s#^\s*url \".*\"#  url \"${URL}\"#" "$FORMULA_FILE"
+          sed -i.bak -E "s#^\s*sha256 \".*\"#  sha256 \"${SHA}\"#" "$FORMULA_FILE"
+          rm -f "$FORMULA_FILE.bak"
+
+      - name: Commit and push changes to tap
+        working-directory: tap
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+          git add Formula/ebpf-guardian.rb
+          git commit -m "Update ebpf-guardian to ${{ steps.release_info.outputs.tag }}" || echo "No changes to commit"
+          git push
