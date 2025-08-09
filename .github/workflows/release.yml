@@ -126,8 +126,11 @@ jobs:
         id: release_info
         run: |
           TAG=${GITHUB_REF#refs/tags/}
+          # Keep the v prefix for tag
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          # For version, ensure we use the full tag without 'v' prefix
+          VERSION=${TAG#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download tarball and calculate SHA256
         id: sha
@@ -145,4 +148,5 @@ jobs:
           tap: ebpf-guardian/homebrew-ebpf-guardian
           formula: ebpf-guardian
           tag: ${{ steps.release_info.outputs.tag }}
+          version: ${{ steps.release_info.outputs.version }}
           revision: ${{ github.sha }}
