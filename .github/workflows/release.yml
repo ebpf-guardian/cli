@@ -138,8 +138,9 @@ jobs:
 
       - name: Update Homebrew Tap
         uses: dawidd6/action-homebrew-bump-formula@v3
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ steps.generate_token.outputs.token }}
         with:
-          token: ${{ steps.generate_token.outputs.token }}
           tap: ebpf-guardian/homebrew-ebpf-guardian
           formula: ebpf-guardian
           tag: ${{ steps.release_info.outputs.tag }}
