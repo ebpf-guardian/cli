@@ -28,8 +28,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install LLVM
         run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 17
           sudo apt-get update
-          sudo apt-get install -y llvm-17-dev libclang-17-dev clang-17
+          sudo apt-get install -y clang-17 libclang-17-dev llvm-17-dev libpolly-17-dev liblld-17-dev
           echo "LLVM_SYS_170_PREFIX=/usr/lib/llvm-17" >> $GITHUB_ENV
       - name: Clippy (default features with LLVM)
         run: cargo clippy -- -D warnings
