@@ -30,6 +30,12 @@ brew reinstall ebpf-guardian
 
 > **Note**: If LLVM 17 is not available, you'll get a minimal build that can analyze existing `.o` files but cannot build from C source.
 
+## Releases
+
+| Version | Date | Description |
+|---------|------|-------------|
+| [v0.1.0](https://github.com/ebpf-guardian/cli/releases/tag/v0.1.0) | 2024-12-19 | Initial release with core eBPF analysis features |
+
 ### Option 2: Install Script
 
 **Unix/Linux/macOS:**
